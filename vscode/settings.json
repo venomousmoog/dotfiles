@@ -1,0 +1,65 @@
+{
+    "workbench.colorTheme": "Default Light+",
+    "editor.fontSize": 13,
+    "editor.tokenColorCustomizations": {
+        "textMateRules": [
+          {
+            "scope": "comment",
+            "settings": {
+              "fontStyle": "",
+            }
+          }
+        ]
+    },
+    "cSpell.userWords": [
+      "ddriver",
+      "ndarray",
+      "openai",
+      "pyright"
+    ],
+    "editor.fontLigatures": true,
+    "todohighlight.isEnable": true,
+
+    // FIXME, ddriver: this should only go to comment scopes, but it's global now.
+    "todohighlight.keywordsPattern": "(TODO|FIXME|DEBUG|HACK|BUGBUG)(, [a-zA-Z0-0]*)?:",
+    "todohighlight.defaultStyle": {
+        "color": "#9B5BA6",
+        "backgroundColor": "#FFF9A6",
+        "overviewRulerColor": "#ffab00",
+        "cursor": "pointer",
+        "border": "1px solid #eee",
+        "borderRadius": "2px",
+    },
+    "security.workspace.trust.untrustedFiles": "open",
+    "files.associations": {
+      "*.cedar": "python"
+    },
+    "pddlParser.executableOrService": "c:\\Users\\ddriver\\AppData\\Roaming\\Code - Insiders\\User\\globalStorage\\jan-dolejsi.pddl\\val\\Val-20210401.1-win64\\bin\\Parser.exe",
+    "pddl.validatorPath": "c:\\Users\\ddriver\\AppData\\Roaming\\Code - Insiders\\User\\globalStorage\\jan-dolejsi.pddl\\val\\Val-20210401.1-win64\\bin\\Validate.exe",
+    "pddl.valueSeqPath": "c:\\Users\\ddriver\\AppData\\Roaming\\Code - Insiders\\User\\globalStorage\\jan-dolejsi.pddl\\val\\Val-20210401.1-win64\\bin\\ValueSeq.exe",
+    "pddl.valStepPath": "c:\\Users\\ddriver\\AppData\\Roaming\\Code - Insiders\\User\\globalStorage\\jan-dolejsi.pddl\\val\\Val-20210401.1-win64\\bin\\ValStep.exe",
+    "workbench.iconTheme": "material-icon-theme",
+    "errorLens.messageBackgroundMode": "none",
+    "vsicons.dontShowNewVersionMessage": true,
+    "omnisharp.useModernNet": false,
+    "errorLens.enabledDiagnosticLevels": [
+      "error",
+      "warning"
+    ],
+    "gitlens.plusFeatures.enabled": false,
+    "python.defaultInterpreterPath": "c:\\open\\ai\\.venv",
+    "files.watcherExclude": {
+      "**/.bloop": true,
+      "**/.metals": true,
+      "**/.ammonite": true
+    },
+    "powershell.codeFormatting.autoCorrectAliases": true,
+    "powershell.codeFormatting.avoidSemicolonsAsLineTerminators": true,
+    "powershell.codeFormatting.newLineAfterCloseBrace": false,
+    "powershell.codeFormatting.trimWhitespaceAroundPipe": true,
+    "powershell.codeFormatting.useConstantStrings": true,
+    "powershell.codeFormatting.useCorrectCasing": true,
+    "powershell.integratedConsole.suppressStartupBanner": true,
+    "powershell.promptToUpdatePowerShell": false,
+    "powershell.integratedConsole.startInBackground": true,
+}
