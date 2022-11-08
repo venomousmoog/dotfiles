@@ -352,13 +352,9 @@ function ln
     }
 
     if ($s) {
-        Write-Host "Link" $Link
-        Write-Host "File" $File
         New-Item -ItemType SymbolicLink -Path $Link -Target $File
     }
     else {
-        Write-Host "Link" $Link
-        Write-Host "File" $File
         New-Item -ItemType HardLink -Path $Link -Target $File
     }
 }
