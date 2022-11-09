@@ -1,3 +1,18 @@
+if (-Not ([Security.Principal.WindowsPrincipal] [Security.Principal.WindowsIdentity]::GetCurrent()).IsInRole([Security.Principal.WindowsBuiltInRole] 'Administrator')) {
+ if ([int](Get-CimInstance -Class Win32_OperatingSystem | Select-Object -ExpandProperty BuildNumber) -ge 6000) {
+  $CommandLine = "-File `"" + $MyInvocation.MyCommand.Path + "`" " + $MyInvocation.UnboundArguments
+
+  if (Test-Path ($pshome + "\pwsh.exe")) {
+    $psexe = $pshome + "\pwsh.exe"
+  } else {
+    $psexe = $pshome + "\powershell.exe"
+  }
+
+  Start-Process -FilePath $psexe -Verb Runas -ArgumentList $CommandLine
+  Exit
+ }
+}
+
 $dotfiles = Join-Path $PSScriptRoot ..
 
 # powershell modules
