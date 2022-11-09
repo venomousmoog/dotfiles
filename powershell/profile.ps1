@@ -1,12 +1,11 @@
 # figure out our real profile path (in case we were invoked through a symlink?)
-$scriptFile = Join-Path $PSScriptRoot $MyInvocation.MyCommand.Name
-Write-Host "running profile from $scriptFile"
+$scriptFile = Join-Path $PSScriptRoot $MyInvocation.MyCommand.
 
 while ($null -ne (Get-Item $scriptFile).LinkType) {
     $scriptFile = (Get-Item $scriptFile).LinkTarget
 }
 $scriptPath = Split-Path $scriptFile
-Write-Host "dotfiles profile is $scriptFile"
+Write-Host "profile from $scriptFile"
 
 # add a roaming modules path
 $env:PSModulePath += [System.IO.Path]::PathSeparator + "$($scriptPath)/Modules"
