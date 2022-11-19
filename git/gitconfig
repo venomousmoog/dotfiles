@@ -9,3 +9,7 @@
 	helper = store
 [http]
 	postBuffer = 157286400
+[credential "https://ghe.oculus-rep.com"]
+	provider = github
+[push]
+	autoSetupRemote = true

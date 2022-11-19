@@ -62,4 +62,5 @@
     "powershell.integratedConsole.suppressStartupBanner": true,
     "powershell.promptToUpdatePowerShell": false,
     "powershell.integratedConsole.startInBackground": true,
+    "terminal.integrated.defaultProfile.windows": "Command Prompt",
 }
