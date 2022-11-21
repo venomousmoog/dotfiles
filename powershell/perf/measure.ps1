@@ -1,0 +1,1 @@
+measure-script -Path "C:\Users\ddriver\Documents\PowerShell\Microsoft.PowerShell_profile.ps1"

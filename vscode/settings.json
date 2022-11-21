@@ -65,8 +65,7 @@
         "editor.tabSize": 2
     },
     "[python]": {
-        "editor.tabSize": 4,
-        "editor.formatOnType": true
+        "editor.tabSize": 4
     },
     "[javascript]": {
         "editor.tabSize": 2
@@ -88,7 +87,7 @@
     "editor.fontFamily": "'LigaConsolas Nerd Font', 'Courier New', monospace",
     "editor.minimap.enabled": true,
     "editor.showFoldingControls": "always",
-    "workbench.panel.defaultLocation": "right",
+    "workbench.panel.defaultLocation": "bottom",
     "redhat.telemetry.enabled": true,
     "powershell.integratedConsole.showOnStartup": false,
 }
