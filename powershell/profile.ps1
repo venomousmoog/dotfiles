@@ -87,6 +87,7 @@ if (-Not (Get-Command "sudo" -ErrorAction Ignore)) {
 }
 
 
+# alias winmerge to windiff because I can never remember these are
 function windiff { winmergeu -r -u -e @args }
 
 function Set-VirtualEnvironment($dir = (Get-Location))
