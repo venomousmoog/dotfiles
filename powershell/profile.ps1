@@ -36,8 +36,9 @@ Import-Module posh-dotnet
 Import-Module posh-docker
 Import-Module posh-vs
 Import-Module PSfzf
-Import-Module $scriptPath\listing.ps1
+Import-Module "$scriptPath\listing.ps1"
 Import-Module "$scriptPath\disk-usage.ps1"
+Import-Module "$scriptPath\posh-buck.ps1"
 
 function Get-CommandLocation {
     $path = (Get-Command @args -ErrorAction Ignore).Path
@@ -84,25 +85,6 @@ if (-Not (Get-Command "sudo" -ErrorAction Ignore)) {
         Start-Process $Command -Verb RunAs -ArgumentList "$($Remaining)"
     }
 }
-
-$env:FBCodeRoot = "C:\open\f"
-$env:bscriptPath = "$scriptPath\b"
-
-function bb { python3 $env:bscriptPath\b.py build @args }
-function br { python3 $env:bscriptPath\b.py run @args }
-function bt { python3 $env:bscriptPath\b.py test @args }
-function bq { python3 $env:bscriptPath\b.py query @args }
-function bg { python3 $env:bscriptPath\b.py targets @args }
-function bd { python3 $env:bscriptPath\b.py debug @args }
-function bbq { python3 $env:bscriptPath\b.py buildq @args }
-function brq { python3 $env:bscriptPath\b.py runq @args }
-function btq { python3 $env:bscriptPath\b.py testq @args }
-function bdq { python3 $env:bscriptPath\b.py debugq @args }
-function bgq { python3 $env:bscriptPath\b.py targetsq @args }
-function b { python3 $env:bscriptPath\b.py @args }
-function udpb { python3 $env:bscriptPath\update_compilation_database.py @args }
-function tidy { python3 $env:bscriptPath\run_clang_tidy.py @args }
-function bmode([string]$mode) { $env:BUCK_MODE = "@" + $mode }
 
 
 function windiff { winmergeu -r -u -e @args }

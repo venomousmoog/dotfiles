@@ -1,1 +1,2 @@
-measure-script -Path "C:\Users\ddriver\Documents\PowerShell\Microsoft.PowerShell_profile.ps1"
+Import-Module PSProfiler
+measure-script -Path $Profile
