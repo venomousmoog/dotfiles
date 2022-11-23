@@ -90,4 +90,5 @@
     "workbench.panel.defaultLocation": "bottom",
     "redhat.telemetry.enabled": true,
     "powershell.integratedConsole.showOnStartup": false,
+    "go.toolsManagement.autoUpdate": true,
 }
