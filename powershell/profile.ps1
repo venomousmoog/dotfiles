@@ -25,11 +25,12 @@ Set-TerminalIconsTheme -ColorTheme ddriver
 $env:PATH += [System.IO.Path]::PathSeparator + "$($scriptPath)/Tools/$($PSVersionTable.Platform)"
 $env:PATH += [System.IO.Path]::PathSeparator + "$env:LOCALAPPDATA/Programs/WinMerge"
 
-# configure bat styles
+# configure bat styles and point less to it
 $env:BAT_THEME="zenburn"
 $env:BAT_STYLE="grid,numbers"
+Set-Alias -Name less -Value bat -Option AllScope
 
-# additional completion
+# additional tools and modules
 Import-Module z
 Import-Module posh-git
 Import-Module posh-dotnet
@@ -86,7 +87,6 @@ if (-Not (Get-Command "sudo" -ErrorAction Ignore)) {
     }
 }
 
-
 # alias winmerge to windiff because I can never remember these are
 function windiff { winmergeu -r -u -e @args }
 
@@ -105,10 +105,6 @@ function Set-VirtualEnvironment($dir = (Get-Location))
     }
 }
 Set-Alias -Name venv -value Set-VirtualEnvironment -Option AllScope
-
-
-Set-Alias -Name less -Value bat -Option AllScope
-
 
 # links
 function ln

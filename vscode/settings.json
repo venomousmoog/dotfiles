@@ -33,10 +33,6 @@
     "files.associations": {
         "*.cedar": "python"
     },
-    "pddlParser.executableOrService": "c:\\Users\\ddriver\\AppData\\Roaming\\Code - Insiders\\User\\globalStorage\\jan-dolejsi.pddl\\val\\Val-20210401.1-win64\\bin\\Parser.exe",
-    "pddl.validatorPath": "c:\\Users\\ddriver\\AppData\\Roaming\\Code - Insiders\\User\\globalStorage\\jan-dolejsi.pddl\\val\\Val-20210401.1-win64\\bin\\Validate.exe",
-    "pddl.valueSeqPath": "c:\\Users\\ddriver\\AppData\\Roaming\\Code - Insiders\\User\\globalStorage\\jan-dolejsi.pddl\\val\\Val-20210401.1-win64\\bin\\ValueSeq.exe",
-    "pddl.valStepPath": "c:\\Users\\ddriver\\AppData\\Roaming\\Code - Insiders\\User\\globalStorage\\jan-dolejsi.pddl\\val\\Val-20210401.1-win64\\bin\\ValStep.exe",
     "workbench.iconTheme": "material-icon-theme",
     "errorLens.messageBackgroundMode": "none",
     "vsicons.dontShowNewVersionMessage": true,
@@ -46,7 +42,6 @@
         "warning"
     ],
     "gitlens.plusFeatures.enabled": false,
-    "python.defaultInterpreterPath": "c:\\open\\ai\\.venv",
     "files.watcherExclude": {
         "**/.bloop": true,
         "**/.metals": true,
@@ -91,5 +86,21 @@
     "workbench.panel.defaultLocation": "bottom",
     "redhat.telemetry.enabled": true,
     "powershell.integratedConsole.showOnStartup": false,
-    "go.toolsManagement.autoUpdate": true
+    "go.toolsManagement.autoUpdate": true,
+    "haskell.serverEnvironment": {    
+        "GHCUP_INSTALL_BASE_PREFIX": "C:\\Users\\ddriver"
+    },
+    "haskell.serverExecutablePath": "C:\\Users\\ddriver\\ghcup\\bin\\haskell-language-server-wrapper-1.8.0.0.exe",
+    "haskell.formattingProvider": "stylish-haskell",
+    "haskell.ghcupExecutablePath": "C:\\Users\\ddriver\\ghcup\\bin\\ghcup.exe",
+    "haskell.manageHLS": "PATH",
+    "haskell.toolchain": {
+        "ghc": "9.4.2",
+        "cabal": "recommended",
+        "stack": "recommended",
+        "hls": "latest"
+    },
+    "python.analysis.inlayHints.functionReturnTypes": true,
+    "python.analysis.inlayHints.variableTypes": false,
+    "FSharp.suggestGitignore": false
 }
