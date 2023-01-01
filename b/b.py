@@ -1,5 +1,4 @@
 #!/usr/bin/env python3
-# (c) Meta Platforms, Inc. and affiliates. Confidential and proprietary.
 
 import argparse
 import json
@@ -15,13 +14,9 @@ from common_tools import get_buck_root
 from common_tools import pretty_targets
 from common_tools import print_trimmed
 from common_tools import temporary_filename
+from common_tools import get_default_mode
 
-if os.getenv("buck_mode"):
-    default_mode = os.getenv("buck_mode")
-elif platform.system() == "Linux":
-    default_mode = "@arvr/mode/linux/dev"
-else:
-    default_mode = "@arvr/mode/win/opt"
+default_mode = get_default_mode()
 
 vs_path = "c:\\Program Files (x86)\\Microsoft Visual Studio\\2019\\Professional\\Common7\\IDE\\devenv.exe"
 windbg_path = os.path.join(
@@ -337,7 +332,7 @@ if __name__ == "__main__":
     rest = list(rest)
     modes = list(modes)
 
-    if len(modes) == 0:
+    if len(modes) == 0 and default_mode:
         modes = [default_mode]
 
     # pick out a target - it should be the next parameter unless

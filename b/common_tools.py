@@ -1,5 +1,4 @@
 #!/usr/bin/env python3
-# (c) Meta Platforms, Inc. and affiliates. Confidential and proprietary.
 
 import argparse
 import contextlib
@@ -9,6 +8,7 @@ import shutil
 import subprocess
 import sys
 import tempfile
+import platform
 
 script_dir = os.path.dirname(os.path.realpath(__file__))
 
@@ -22,6 +22,17 @@ def get_buck_root():
         get_buck_root.inner = result.strip()
     return get_buck_root.inner
 
+def get_default_mode():
+    if os.getenv("BUCK_MODE"):
+        env_mode = os.getenv("BUCK_MODE")
+        if len(env_mode) > 1:
+            return env_mode
+        else:
+            return None
+    elif platform.system() == "Linux":
+        return "@arvr/mode/linux/dev"
+    else:
+        return "@arvr/mode/win/opt"
 
 @contextlib.contextmanager
 def temporary_filename(suffix=None):

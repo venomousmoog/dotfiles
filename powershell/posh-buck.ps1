@@ -1,5 +1,5 @@
 $bpath = Join-Path "$PSScriptRoot" "../b"
-$bfile = Join-Path "$bpath" "b.py" 
+$bfile = Join-Path "$bpath" "b.py"
 
 function bb { python3 $bfile build @args }
 function br { python3 $bfile run @args }
@@ -15,4 +15,26 @@ function bgq { python3 $bfile targetsq @args }
 function b { python3 $bfile @args }
 function udpb { python3 $bpath\update_compilation_database.py @args }
 function tidy { python3 $bpath\run_clang_tidy.py @args }
-function bmode([string]$mode) { $env:BUCK_MODE = "@" + $mode }
+
+function bmode(
+    [string]$Mode,
+    [switch]$Clear,
+    [switch]$None)
+{
+    if ($Clear) {
+        if (Test-Path env:BUCK_MODE) {
+            Remove-Item env:BUCK_MODE
+        }
+    }
+    elseif ($None) {
+        $env:BUCK_MODE = "@"
+    }
+    elseif ($Mode) {
+        $env:BUCK_MODE = "@" + $Mode
+    }
+
+    # print current ode
+    Push-Location $bpath
+    python3 -c "from common_tools import get_default_mode; print(f'{get_default_mode()}')"
+    Pop-Location
+}

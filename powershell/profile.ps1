@@ -87,6 +87,10 @@ if (-Not (Get-Command "sudo" -ErrorAction Ignore)) {
     }
 }
 
+if (-Not (Test-Path env:USERNAME)) {
+    $env:USERNAME = $env:USER
+}
+
 # alias winmerge to windiff because I can never remember these are
 function windiff { winmergeu -r -u -e @args }
 
