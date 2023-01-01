@@ -23,7 +23,7 @@ Install-Module @(
     "posh-vs"
     # "Terminal-Icons"
     "z"
-) 
+)
 
 # winget installed tools
 @(
@@ -38,12 +38,12 @@ Install-Module @(
     "Microsoft.OneDrive"
     "Microsoft.PowerShell.Preview"
     "Microsoft.VisualStudio.2022.Professional"
-    "Microsoft.VisualStudioCode.Insiders" 
+    "Microsoft.VisualStudioCode.Insiders"
     "Microsoft.WindowsTerminal.Preview"
     "OBSProject.OBSStudio"
     "OpenJS.NodeJS.LTS"
     "OpenWhisperSystems.Signal"
-    "WinMerge.WinMerge"    
+    "WinMerge.WinMerge"
 ) | ForEach-Object {winget install "$_"}
 
 # configuration links mapping
