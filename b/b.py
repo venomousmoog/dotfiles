@@ -75,6 +75,9 @@ def get_passthru_args(rest):
     if "--" in rest:
         index = rest.index("--")
         return (rest[0:index], rest[index + 1 :])
+    elif "//" in rest:
+        index = rest.index("//")
+        return (rest[0:index], rest[index + 1 :])
     else:
         return (rest, [])
 
@@ -107,12 +110,11 @@ def find_output_or_fail(target):
 
 def find_runnable(target, modes, results):
     runnable = find_output(results[target])
-    if runnable != None:
-        return runnable, os.environ
+    if runnable != None and not runnable.endswith(".par"):
+        return [runnable], os.environ
 
     # if there was no target output, we probably built a command
     # alias - let's try to find the actual target exe and environment:
-    print("looking for command alias")
     cmd = ["buck", "run", "--print-command"] + modes + [target]
     print_trimmed(cmd)
     result = subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.DEVNULL)
