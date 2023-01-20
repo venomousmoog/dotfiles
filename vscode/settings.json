@@ -100,7 +100,14 @@
         "stack": "recommended",
         "hls": "latest"
     },
+    "markdown.styles": [
+        "https://use.fontawesome.com/releases/v5.7.1/css/all.css"
+    ],
     "python.analysis.inlayHints.functionReturnTypes": true,
     "python.analysis.inlayHints.variableTypes": false,
-    "FSharp.suggestGitignore": false
+    "FSharp.suggestGitignore": false,
+    "isort.showNotifications": "always",
+    "[json]": {
+        "editor.defaultFormatter": "vscode.json-language-features"
+    }
 }

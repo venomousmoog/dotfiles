@@ -41,3 +41,7 @@
 	autoSetupRemote = true
 [safe]
 	directory = C:/open/xpack
+[alias]
+	co = checkout
+	br = branch
+	st = status
