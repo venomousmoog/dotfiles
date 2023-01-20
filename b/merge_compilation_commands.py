@@ -1,5 +1,4 @@
 #!/usr/bin/env python3
-# (c) Meta Platforms, Inc. and affiliates. Confidential and proprietary.
 
 import argparse
 import json

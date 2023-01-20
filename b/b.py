@@ -1,5 +1,4 @@
 #!/usr/bin/env python3
-# (c) Meta Platforms, Inc. and affiliates. Confidential and proprietary.
 
 import argparse
 import json
@@ -15,13 +14,9 @@ from common_tools import get_buck_root
 from common_tools import pretty_targets
 from common_tools import print_trimmed
 from common_tools import temporary_filename
+from common_tools import get_default_mode
 
-if os.getenv("buck_mode"):
-    default_mode = os.getenv("buck_mode")
-elif platform.system() == "Linux":
-    default_mode = "@arvr/mode/linux/dev"
-else:
-    default_mode = "@arvr/mode/win/opt"
+default_mode = get_default_mode()
 
 vs_path = "c:\\Program Files (x86)\\Microsoft Visual Studio\\2019\\Professional\\Common7\\IDE\\devenv.exe"
 windbg_path = os.path.join(
@@ -80,6 +75,9 @@ def get_passthru_args(rest):
     if "--" in rest:
         index = rest.index("--")
         return (rest[0:index], rest[index + 1 :])
+    elif "//" in rest:
+        index = rest.index("//")
+        return (rest[0:index], rest[index + 1 :])
     else:
         return (rest, [])
 
@@ -112,12 +110,11 @@ def find_output_or_fail(target):
 
 def find_runnable(target, modes, results):
     runnable = find_output(results[target])
-    if runnable != None:
-        return runnable, os.environ
+    if runnable != None and not runnable.endswith(".par"):
+        return [runnable], os.environ
 
     # if there was no target output, we probably built a command
     # alias - let's try to find the actual target exe and environment:
-    print("looking for command alias")
     cmd = ["buck", "run", "--print-command"] + modes + [target]
     print_trimmed(cmd)
     result = subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.DEVNULL)
@@ -337,7 +334,7 @@ if __name__ == "__main__":
     rest = list(rest)
     modes = list(modes)
 
-    if len(modes) == 0:
+    if len(modes) == 0 and default_mode:
         modes = [default_mode]
 
     # pick out a target - it should be the next parameter unless
