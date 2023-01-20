@@ -39,3 +39,5 @@
 	autoSetupRemote = true
 [safe]
 	directory = C:/open/xpack
+[credential "https://ghe.oculus-rep.com"]
+	provider = github

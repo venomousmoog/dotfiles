@@ -1,5 +1,6 @@
 # figure out our real profile path (in case we were invoked through a symlink?)
 $scriptFile = $PSCommandPath
+$PSNativeCommandUseErrorActionPreference = $false
 
 while ($null -ne (Get-Item $scriptFile).LinkType) {
     $scriptFile = (Get-Item $scriptFile).LinkTarget

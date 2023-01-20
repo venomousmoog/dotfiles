@@ -20,10 +20,6 @@
             "keys": "ctrl+c"
         },
         {
-            "command": "unbound",
-            "keys": "ctrl+shift+t"
-        },
-        {
             "command": 
             {
                 "action": "splitPane",
@@ -31,6 +27,10 @@
                 "splitMode": "duplicate"
             },
             "keys": "alt+shift+d"
+        },
+        {
+            "command": "unbound",
+            "keys": "ctrl+shift+t"
         },
         {
             "command": 
@@ -126,6 +126,12 @@
                 "hidden": true,
                 "name": "Ubuntu-22.04",
                 "source": "Windows.Terminal.Wsl"
+            },
+            {
+                "guid": "{16208362-94fc-5b1f-a491-5b2624d5ab56}",
+                "hidden": true,
+                "name": "Visual Studio Debug Console",
+                "source": "VSDebugConsole"
             }
         ]
     },
