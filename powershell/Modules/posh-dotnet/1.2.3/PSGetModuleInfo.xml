@@ -1,0 +1,129 @@
+<Objs Version="1.1.0.1" xmlns="http://schemas.microsoft.com/powershell/2004/04">
+  <Obj RefId="0">
+    <TN RefId="0">
+      <T>Microsoft.PowerShell.Commands.PSRepositoryItemInfo</T>
+      <T>System.Management.Automation.PSCustomObject</T>
+      <T>System.Object</T>
+    </TN>
+    <MS>
+      <S N="Name">posh-dotnet</S>
+      <Version N="Version">1.2.3</Version>
+      <S N="Type">Module</S>
+      <S N="Description">A tab completion module for the dotnet CLI</S>
+      <S N="Author">Christoph Bergmeister</S>
+      <S N="CompanyName">bergmeister</S>
+      <S N="Copyright">(c) 2017 Christoph Bergmeister. All rights reserved.</S>
+      <DT N="PublishedDate">2017-11-27T22:08:04-08:00</DT>
+      <Obj N="InstalledDate" RefId="1">
+        <DT>2022-11-07T16:29:30.0510178-08:00</DT>
+        <MS>
+          <Obj N="DisplayHint" RefId="2">
+            <TN RefId="1">
+              <T>Microsoft.PowerShell.Commands.DisplayHintType</T>
+              <T>System.Enum</T>
+              <T>System.ValueType</T>
+              <T>System.Object</T>
+            </TN>
+            <ToString>DateTime</ToString>
+            <I32>2</I32>
+          </Obj>
+        </MS>
+      </Obj>
+      <Nil N="UpdatedDate" />
+      <URI N="LicenseUri">https://github.com/bergmeister/posh-dotnet/blob/master/LICENSE</URI>
+      <URI N="ProjectUri">https://github.com/bergmeister/posh-dotnet/</URI>
+      <Nil N="IconUri" />
+      <Obj N="Tags" RefId="3">
+        <TN RefId="2">
+          <T>System.Object[]</T>
+          <T>System.Array</T>
+          <T>System.Object</T>
+        </TN>
+        <LST>
+          <S>dotnet</S>
+          <S>cli</S>
+          <S>dotnet-cli</S>
+          <S>tabcompletion</S>
+          <S>tab-completion</S>
+          <S>posh</S>
+          <S>PSModule</S>
+        </LST>
+      </Obj>
+      <Obj N="Includes" RefId="4">
+        <TN RefId="3">
+          <T>System.Collections.Hashtable</T>
+          <T>System.Object</T>
+        </TN>
+        <DCT>
+          <En>
+            <S N="Key">RoleCapability</S>
+            <Obj N="Value" RefId="5">
+              <TNRef RefId="2" />
+              <LST />
+            </Obj>
+          </En>
+          <En>
+            <S N="Key">Function</S>
+            <Ref N="Value" RefId="5" />
+          </En>
+          <En>
+            <S N="Key">Workflow</S>
+            <Ref N="Value" RefId="5" />
+          </En>
+          <En>
+            <S N="Key">Command</S>
+            <Ref N="Value" RefId="5" />
+          </En>
+          <En>
+            <S N="Key">Cmdlet</S>
+            <Ref N="Value" RefId="5" />
+          </En>
+          <En>
+            <S N="Key">DscResource</S>
+            <Ref N="Value" RefId="5" />
+          </En>
+        </DCT>
+      </Obj>
+      <Nil N="PowerShellGetFormatVersion" />
+      <Nil N="ReleaseNotes" />
+      <Obj N="Dependencies" RefId="6">
+        <TNRef RefId="2" />
+        <LST />
+      </Obj>
+      <S N="RepositorySourceLocation">https://www.powershellgallery.com/api/v2</S>
+      <S N="Repository">PSGallery</S>
+      <S N="PackageManagementProvider">NuGet</S>
+      <Obj N="AdditionalMetadata" RefId="7">
+        <TN RefId="4">
+          <T>System.Management.Automation.PSCustomObject</T>
+          <T>System.Object</T>
+        </TN>
+        <MS>
+          <S N="copyright">(c) 2017 Christoph Bergmeister. All rights reserved.</S>
+          <S N="description">A tab completion module for the dotnet CLI</S>
+          <S N="requireLicenseAcceptance">True</S>
+          <S N="isLatestVersion">True</S>
+          <S N="isAbsoluteLatestVersion">True</S>
+          <S N="versionDownloadCount">1634</S>
+          <S N="downloadCount">1716</S>
+          <S N="packageSize">20092</S>
+          <S N="published">11/27/2017 10:08:04 PM -08:00</S>
+          <S N="created">11/27/2017 10:08:04 PM -08:00</S>
+          <S N="lastUpdated">10/31/2022 3:33:08 PM -07:00</S>
+          <S N="tags">dotnet cli dotnet-cli tabcompletion tab-completion posh PSModule</S>
+          <S N="developmentDependency">False</S>
+          <S N="updated">2022-10-31T15:33:08Z</S>
+          <S N="NormalizedVersion">1.2.3</S>
+          <S N="Authors">Christoph Bergmeister</S>
+          <S N="IsPrerelease">false</S>
+          <S N="ItemType">Module</S>
+          <S N="FileList">posh-dotnet.nuspec|LICENSE|posh-dotnet.psd1|posh-dotnet.psm1|README.md</S>
+          <S N="GUID">2312ee65-7cb8-4d63-a187-6288d1af6cea</S>
+          <S N="PowerShellVersion">3.0</S>
+          <S N="CompanyName">Unknown</S>
+        </MS>
+      </Obj>
+      <S N="InstalledLocation">C:\Users\ddriver\Documents\PowerShell\Modules\posh-dotnet\1.2.3</S>
+    </MS>
+  </Obj>
+</Objs>

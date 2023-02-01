@@ -19,9 +19,9 @@ $dotfiles = Join-Path $PSScriptRoot ..
 Install-Module @(
     "posh-docker"
     "posh-dotnet"
-    # "posh-git"
+    # "posh-git" - we have a custom version
     "posh-vs"
-    # "Terminal-Icons"
+    # "Terminal-Icons" - same here
     "z"
 )
 

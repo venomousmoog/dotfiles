@@ -1,5 +1,6 @@
 # figure out our real profile path (in case we were invoked through a symlink?)
 $scriptFile = $PSCommandPath
+$PSNativeCommandUseErrorActionPreference = $false
 
 while ($null -ne (Get-Item $scriptFile).LinkType) {
     $scriptFile = (Get-Item $scriptFile).LinkTarget
@@ -90,6 +91,7 @@ if (-Not (Get-Command "sudo" -ErrorAction Ignore)) {
 if (-Not (Test-Path env:USERNAME)) {
     $env:USERNAME = $env:USER
 }
+Set-PSReadLineOption -EditMode Windows
 
 # alias winmerge to windiff because I can never remember these are
 function windiff { winmergeu -r -u -e @args }
