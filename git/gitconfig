@@ -37,9 +37,17 @@
     name = WinMerge
     trustExitCode = true
     cmd = "WinMergeU.exe" -r -u -e $LOCAL $REMOTE
+
 [push]
 	autoSetupRemote = true
+
 [safe]
 	directory = C:/open/xpack
+
+[alias]
+	co = checkout
+	br = branch
+	st = status
+
 [credential "https://ghe.oculus-rep.com"]
 	provider = github
