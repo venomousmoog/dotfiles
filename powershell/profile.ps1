@@ -10,6 +10,10 @@ Write-Host "profile from $scriptFile"
 # add a roaming modules path
 $env:PSModulePath += [System.IO.Path]::PathSeparator + "$($scriptPath)/Modules"
 
+# add tools to path:
+$env:PATH += [System.IO.Path]::PathSeparator + "$($scriptPath)/Tools/$($PSVersionTable.Platform)"
+$env:PATH += [System.IO.Path]::PathSeparator + "$env:LOCALAPPDATA/Programs/WinMerge"
+
 # disable virtual prompt support (we get this from oh-my-posh)
 $env:VIRTUAL_ENV_DISABLE_PROMPT=1
 
@@ -20,10 +24,6 @@ oh-my-posh init pwsh --config "$scriptPath/ddriver.omp.json" | Invoke-Expression
 Import-Module Terminal-Icons
 Add-TerminalIconsColorTheme "$scriptPath/ddriver.theme.psd1"
 Set-TerminalIconsTheme -ColorTheme ddriver
-
-# add tools to path:
-$env:PATH += [System.IO.Path]::PathSeparator + "$($scriptPath)/Tools/$($PSVersionTable.Platform)"
-$env:PATH += [System.IO.Path]::PathSeparator + "$env:LOCALAPPDATA/Programs/WinMerge"
 
 # configure bat styles and point less to it
 $env:BAT_THEME="zenburn"
