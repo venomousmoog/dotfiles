@@ -180,10 +180,11 @@ def filter_extensions(file_lines, extensions):
 
 
 def print_trimmed(s):
-    if sys.stdout.isatty():
-        columns, rows = shutil.get_terminal_size(fallback=(80, 24))
-    else:
-        columns = sys.maxsize
+    # if sys.stdout.isatty():
+    #     columns, rows = shutil.get_terminal_size(fallback=(80, 24))
+    # else:
+    #     columns = sys.maxsize
+    columns = sys.maxsize
 
     trimmed = str(s)
     if len(trimmed) > columns:

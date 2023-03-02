@@ -26,6 +26,10 @@ Set-TerminalIconsTheme -ColorTheme ddriver
 $env:PATH += [System.IO.Path]::PathSeparator + "$($scriptPath)/Tools/$($PSVersionTable.Platform)"
 $env:PATH += [System.IO.Path]::PathSeparator + "$env:LOCALAPPDATA/Programs/WinMerge"
 
+if ($PSVersionTable.Platform = "Win32NT") {
+    $env:PATH += [System.IO.Path]::PathSeparator + 'C:\Program Files (x86)\Windows Kits\10\Debuggers\x64\'
+}
+
 # configure bat styles and point less to it
 $env:BAT_THEME="zenburn"
 $env:BAT_STYLE="grid,numbers"
