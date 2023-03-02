@@ -10,6 +10,8 @@ import sys
 import tempfile
 import platform
 
+from typing import List
+
 script_dir = os.path.dirname(os.path.realpath(__file__))
 
 # Lazily compute buck_root. Stored in function attribute.
@@ -25,7 +27,7 @@ def get_buck_root():
 def get_default_mode():
     if os.getenv("BUCK_MODE"):
         env_mode = os.getenv("BUCK_MODE")
-        if len(env_mode) > 1:
+        if env_mode and len(env_mode) > 1:
             return env_mode
         else:
             return None
@@ -137,7 +139,7 @@ def success_color(str):
 
 def exec_lines(cmd, stop_on_error=True, quiet=False):
     if not quiet:
-        print_trimmed(cmd)
+        print_command(cmd)
     try:
         result = subprocess.check_output(cmd)
     except subprocess.CalledProcessError as exc:
@@ -151,7 +153,7 @@ def exec_lines(cmd, stop_on_error=True, quiet=False):
 
 def exec_cmd(cmd, stop_on_error=True, quiet=False):
     if not quiet:
-        print_trimmed(cmd)
+        print_command(cmd)
     result = subprocess.call(cmd)
     if stop_on_error and result != 0:
         print("exited with errors")
@@ -178,6 +180,31 @@ def filter_extensions(file_lines, extensions):
 
     return filtered
 
+class _Colors:
+    Black = "30"
+    Red = "31"
+    Green = "32"
+    Yellow = "33"
+    Blue = "34"
+    Magenta = "35"
+    Cyan = "36"
+    White = "37"
+    BrightBlack = "30;1"
+    BrightRed = "31;1"
+    BrightGreen = "32;1"
+    BrightYellow = "33;1"
+    BrightBlue = "34;1"
+    BrightMagenta = "35;1"
+    BrightCyan = "36;1"
+    BrightWhite = "37;1"
+    Reset = "00"
+
+def _print_color(color: str, message: str, end = '\n'):
+    print(f"\033[{color}m{message}\033[{_Colors.Reset}m", end = end)
+
+def print_command(cmd: List[str]):
+    _print_color(_Colors.Green, f"> ", end='')
+    _print_color(_Colors.BrightCyan, " ".join([f"\"{s}\"" if ' ' in s else s for s in cmd]))
 
 def print_trimmed(s):
     # if sys.stdout.isatty():

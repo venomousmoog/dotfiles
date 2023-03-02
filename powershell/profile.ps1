@@ -11,6 +11,14 @@ Write-Host "profile from $scriptFile"
 # add a roaming modules path
 $env:PSModulePath += [System.IO.Path]::PathSeparator + "$($scriptPath)/Modules"
 
+# add tools to path:
+$env:PATH += [System.IO.Path]::PathSeparator + "$($scriptPath)/Tools/$($PSVersionTable.Platform)"
+$env:PATH += [System.IO.Path]::PathSeparator + "$env:LOCALAPPDATA/Programs/WinMerge"
+
+if ($PSVersionTable.Platform = "Win32NT") {
+    $env:PATH += [System.IO.Path]::PathSeparator + 'C:\Program Files (x86)\Windows Kits\10\Debuggers\x64\'
+}
+
 # disable virtual prompt support (we get this from oh-my-posh)
 $env:VIRTUAL_ENV_DISABLE_PROMPT=1
 
@@ -21,14 +29,6 @@ oh-my-posh init pwsh --config "$scriptPath/ddriver.omp.json" | Invoke-Expression
 Import-Module Terminal-Icons
 Add-TerminalIconsColorTheme "$scriptPath/ddriver.theme.psd1"
 Set-TerminalIconsTheme -ColorTheme ddriver
-
-# add tools to path:
-$env:PATH += [System.IO.Path]::PathSeparator + "$($scriptPath)/Tools/$($PSVersionTable.Platform)"
-$env:PATH += [System.IO.Path]::PathSeparator + "$env:LOCALAPPDATA/Programs/WinMerge"
-
-if ($PSVersionTable.Platform = "Win32NT") {
-    $env:PATH += [System.IO.Path]::PathSeparator + 'C:\Program Files (x86)\Windows Kits\10\Debuggers\x64\'
-}
 
 # configure bat styles and point less to it
 $env:BAT_THEME="zenburn"
@@ -95,6 +95,7 @@ if (-Not (Get-Command "sudo" -ErrorAction Ignore)) {
 if (-Not (Test-Path env:USERNAME)) {
     $env:USERNAME = $env:USER
 }
+Set-PSReadLineOption -EditMode Windows
 
 # alias winmerge to windiff because I can never remember these are
 function windiff { winmergeu -r -u -e @args }

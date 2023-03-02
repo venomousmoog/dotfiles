@@ -17,6 +17,7 @@
         },
     },
     "cSpell.userWords": [
+        "arvr",
         "ddriver",
         "ndarray",
         "openai",
@@ -86,9 +87,9 @@
     ],
     "errorLens.gutterIconsEnabled": true,
     // -> != == === <> <= >= ::  (a -> b) (A => B)
-    "editor.fontFamily": "'FiraCode NFM', 'LigaConsolas Nerd Font', 'Courier New', monospace",
-    "editor.fontSize": 12,
-    "terminal.integrated.fontSize": 12,
+    "editor.fontFamily": "'LigaConsolas Nerd Font', 'Courier New', monospace",
+    "editor.fontSize": 13,
+    "terminal.integrated.fontSize": 13,
     "editor.minimap.enabled": true,
     "editor.showFoldingControls": "always",
     "workbench.panel.defaultLocation": "bottom",
