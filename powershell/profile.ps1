@@ -8,6 +8,14 @@ while ($null -ne (Get-Item $scriptFile).LinkType) {
 $scriptPath = Split-Path $scriptFile
 Write-Host "profile from $scriptFile"
 
+# helper to figure out what commands might be installed
+Function Test-CommandExists
+{
+    Param ($command)
+    try { if (Get-Command $command -ErrorAction "stop") { RETURN $true } }
+    Catch { RETURN $false }
+}
+
 # add a roaming modules path
 $env:PSModulePath += [System.IO.Path]::PathSeparator + "$($scriptPath)/Modules"
 
@@ -31,9 +39,12 @@ Add-TerminalIconsColorTheme "$scriptPath/ddriver.theme.psd1"
 Set-TerminalIconsTheme -ColorTheme ddriver
 
 # configure bat styles and point less to it
-$env:BAT_THEME="zenburn"
-$env:BAT_STYLE="grid,numbers"
-Set-Alias -Name less -Value bat -Option AllScope
+if (Test-CommandExists "bat")
+{
+    $env:BAT_THEME="zenburn"
+    $env:BAT_STYLE="grid,numbers"
+    Set-Alias -Name less -Value bat -Option AllScope
+}
 
 # additional tools and modules
 Import-Module z
