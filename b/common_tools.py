@@ -10,6 +10,7 @@ import sys
 import tempfile
 import platform
 
+from time import time
 from typing import List
 
 script_dir = os.path.dirname(os.path.realpath(__file__))
@@ -218,3 +219,15 @@ def print_trimmed(s):
         trimmed = trimmed[0 : columns - 3] + "..."
 
     print(trimmed)
+
+class Timer:
+    def __init__(self, name = ""):
+        self._start = time()
+        self._prefix = f"{name}: " if name else ""
+        print(f'{self._prefix}start')
+
+    def tick(self, msg):
+        now = time()
+        elapsed = now - self._start
+        self._start = now
+        print(f'{self._prefix}{msg} {(elapsed*1000):.2f}ms')

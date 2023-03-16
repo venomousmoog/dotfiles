@@ -7,32 +7,35 @@ import platform
 import subprocess
 import sys
 import toml
-import fnmatch
 import platform
 
 import queries
-from common_tools import (change_cwd, exec_lines, get_buck_root, pretty_targets, print_trimmed, print_command, temporary_filename)
+
+from fnmatch import fnmatch
+
+from common_tools import (change_cwd, exec_lines, get_buck_root, pretty_targets, print_trimmed, print_command, temporary_filename, Timer)
 
 # Lazily compute buck_root. Stored in function attribute.
 def get_buck_root():
     if not hasattr(get_buck_root, "inner"):
         result = subprocess.run(
-            ["buck", "root"], stdout=subprocess.PIPE, stderr=subprocess.DEVNULL
+            ["buck2", "root"], stdout=subprocess.PIPE, stderr=subprocess.DEVNULL
         )
         result = result.stdout.decode("utf-8")
         get_buck_root.inner = result.strip()
 
     return get_buck_root.inner
 
+
 def get_absolute_buck_root():
     if not hasattr(get_absolute_buck_root, "inner"):
         root = get_buck_root()
-        parent = os.path.dirname(root)                
+        parent = os.path.dirname(root)
         while True:
             try:
                 with change_cwd(parent):
                     next = subprocess.run(
-                        ["buck", "root"], stdout=subprocess.PIPE, stderr=subprocess.DEVNULL
+                        ["buck2", "root"], stdout=subprocess.PIPE, stderr=subprocess.DEVNULL
                     )
 
                 next = next.stdout.decode("utf-8")
@@ -40,7 +43,7 @@ def get_absolute_buck_root():
                     break
 
                 root = next
-                parent = os.path.dirname(root)                
+                parent = os.path.dirname(root)
             except subprocess.CalledProcessError:
                 break
 
@@ -52,7 +55,7 @@ def get_absolute_buck_root():
 def get_cell_root(cell: str):
     if not hasattr(get_cell_root, "cells"):
         cells = {}
-        for line in exec_lines(["buck", "audit", "cell"], quiet=True):
+        for line in exec_lines(["buck2", "audit", "cell"], quiet=True):
             c, p = line.split(': ', 2)
             cells[c] = p
 
@@ -64,10 +67,24 @@ def get_cell_root(cell: str):
 
 def get_target_path(target):
     """return the path to the target relative to the enlistment root"""
+
+    # we need to support:
+    # //blah/blah
+    # :
+    # ...
+    # //blah/blah/...
+    # //blah/blah:
+    # //blah/blah:targ
+    # cell//blah/blah:targ
+
+    timer = Timer("get_target_path")
+
+    absolute = False
     cell = ''
     path = target
     if '//' in target:
         cell, path = target.split('//', 2)
+        absolute = True
 
     if path.endswith('...'):
         path = path[:-3]
@@ -75,11 +92,21 @@ def get_target_path(target):
     if ':' in path:
         path, _ = target.rsplit(':', 2)
 
+    timer.tick("strings")
+
     root = get_buck_root()
+    timer.tick("get_buck_root")
+
     if cell:
         root = get_cell_root(cell)
 
-    return os.path.normpath(os.path.join(root, path)).replace("\\", "/")
+    timer.tick(f"get_cell_root {cell}")
+
+    if absolute:
+        return os.path.normpath(os.path.join(root, path)).replace("\\", "/")
+    else:
+        return os.path.normpath(os.path.abspath(path)).replace("\\", "/")
+
 
 def get_default_mode():
     if os.getenv("BUCK_MODE"):
@@ -94,19 +121,32 @@ def get_default_mode():
 default_mode = get_default_mode()
 
 def get_target_auto_mode(target: str, flavor: str):
+    timer = Timer("get_target_auto_mode")
     auto_mode_file = get_target_path("fbcode//buck_auto_mode/data/buck_auto_mode.toml")
+    timer.tick(f'get_target_path')
     modes = toml.load(auto_mode_file)
-    target_path = os.path.relpath(get_target_path(target), get_absolute_buck_root()).replace("\\", "/") + '/'
+    timer.tick(f'toml load')
+    target_path = get_target_path(target)
+    timer.tick(f'target_path')
+    absolute_buck_root = get_absolute_buck_root()
+    timer.tick(f'absolute_buck_root')
+    target_path = os.path.relpath(target_path, absolute_buck_root).replace("\\", "/") + '/'
+    timer.tick(f'relpath')
 
-    for project in modes['Project']:
-        for path in project['paths']:
-            if fnmatch.fnmatch(path, target_path):
-                print(f'matched {target_path} to {project}')
-                platform_section = project.get(platform.system().lower(), None)
-                if platform_section:
-                    return platform_section.get(flavor, None)
+    try:
+        for project in modes['Project']:
+            for pattern in project['paths']:
+                if fnmatch(target_path, pattern):
+                    platform_section = project.get(platform.system().lower(), None)
+                    if platform_section:
+                        for f in set([flavor, "dbg", "opt", "asan", "tsan"]):
+                            if f in platform_section:
+                                return "@" + platform_section[f]
+                        return None
+        return None
+    finally:
+        timer.tick(f'filter')
 
-    return None
 
 vs_path = "c:\\Program Files (x86)\\Microsoft Visual Studio\\2019\\Professional\\Common7\\IDE\\devenv.exe"
 windbg_path = os.path.join(
@@ -303,7 +343,7 @@ def save_buck_query(modes, query, output):
         for target in targets:
             f.write(target + "\n")
     # return the first target as an "info" target:
-    if targets: 
+    if targets:
         return targets[0]
     else:
         return None
@@ -414,6 +454,15 @@ def targetsq(modes, target, rest):
     for t in targets:
         print(t)
 
+def resolve_modes(modes, target, rest):
+    def resolve_mode(m):
+        if m.startswith("@auto-"):
+            return get_target_auto_mode(target, m[len("@auto-"):])
+        else:
+            return m
+
+    return list([i for i in [resolve_mode(m) for m in modes] if i])
+
 def test_modes(modes, target, rest):
     print(f'modes = {modes}')
     print(f'target = {target}')
@@ -422,6 +471,7 @@ def test_modes(modes, target, rest):
     print(f'target_mode = {get_target_auto_mode(target, "dbg")}')
     print(f'current root = {get_buck_root()}')
     print(f'abs root = {get_absolute_buck_root()}')
+    print(f'resolve = {resolve_modes(modes, target, rest)}')
 
 # Aliases - just replace anything in the command line that starts with # with this:
 aliases = {
@@ -468,8 +518,8 @@ if __name__ == "__main__":
         rest = rest[1:]
         # if no target with a colon has been specified, assume
         # the caller wants one from the current directory
-        if target in aliases:
-            target = aliases[target]
+        if target.startswith("#") and target[1:]in aliases:
+            target = aliases[target[1:]]
         elif not ":" in target and not "..." in target and not command.endswith("q"):
             target = ":" + target
     else:
@@ -478,5 +528,8 @@ if __name__ == "__main__":
         else:
             target = queries.all_targets
 
+    # compute any auto-mode configuration
+    modes = resolve_modes(modes, target, rest)
+
     # invoke the command
-    commands.get(command, lambda: "unknown mode")(modes, target, rest)
+    commands.get(command, lambda: "unknown command")(modes, target, rest)
