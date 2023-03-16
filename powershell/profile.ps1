@@ -8,12 +8,24 @@ while ($null -ne (Get-Item $scriptFile).LinkType) {
 $scriptPath = Split-Path $scriptFile
 Write-Host "profile from $scriptFile"
 
+# helper to figure out what commands might be installed
+Function Test-CommandExists
+{
+    Param ($command)
+    try { if (Get-Command $command -ErrorAction "stop") { RETURN $true } }
+    Catch { RETURN $false }
+}
+
 # add a roaming modules path
 $env:PSModulePath += [System.IO.Path]::PathSeparator + "$($scriptPath)/Modules"
 
 # add tools to path:
 $env:PATH += [System.IO.Path]::PathSeparator + "$($scriptPath)/Tools/$($PSVersionTable.Platform)"
 $env:PATH += [System.IO.Path]::PathSeparator + "$env:LOCALAPPDATA/Programs/WinMerge"
+
+if ($PSVersionTable.Platform = "Win32NT") {
+    $env:PATH += [System.IO.Path]::PathSeparator + 'C:\Program Files (x86)\Windows Kits\10\Debuggers\x64\'
+}
 
 # disable virtual prompt support (we get this from oh-my-posh)
 $env:VIRTUAL_ENV_DISABLE_PROMPT=1
@@ -27,9 +39,12 @@ Add-TerminalIconsColorTheme "$scriptPath/ddriver.theme.psd1"
 Set-TerminalIconsTheme -ColorTheme ddriver
 
 # configure bat styles and point less to it
-$env:BAT_THEME="zenburn"
-$env:BAT_STYLE="grid,numbers"
-Set-Alias -Name less -Value bat -Option AllScope
+if (Test-CommandExists "bat")
+{
+    $env:BAT_THEME="zenburn"
+    $env:BAT_STYLE="grid,numbers"
+    Set-Alias -Name less -Value bat -Option AllScope
+}
 
 # additional tools and modules
 Import-Module z

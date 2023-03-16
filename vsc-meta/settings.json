@@ -1,27 +1,38 @@
 {
-    "workbench.colorTheme": "Default Light+",
-    "editor.tokenColorCustomizations": {
-        "textMateRules": [
-            {
-                "scope": "comment",
-                "settings": {
-                    "fontStyle": "bold"
-                }
-            }
-        ]
-    },
     "workbench.colorCustomizations": {
         "[Quiet Light]": {
             "editor.background": "#FFFFFF",
             "editor.lineHighlightBackground": "#F9F9F9",
         },
+        "titleBar.activeBackground": "#fffd7f",
+        "titleBar.inactiveBackground": "#f2f1c9",
+    },
+    "editor.fontSize": 13,
+    "editor.tokenColorCustomizations": {
+        "textMateRules": [
+            {
+                "scope": "comment",
+                "settings": {
+                    "fontStyle": "",
+                }
+            }
+        ],
+        "[Quiet Light]": {
+            "comments": "#009900",
+        },
     },
     "cSpell.userWords": [
-        "arvr",
+        "argparser",
+        "bytestr",
+        "configerator",
         "ddriver",
+        "fbcode",
+        "fbpkg",
         "ndarray",
+        "oncall",
         "openai",
-        "pyright"
+        "pyright",
+        "srcs"
     ],
     "editor.fontLigatures": true,
     "todohighlight.isEnable": true,
@@ -39,6 +50,7 @@
     "files.associations": {
         "*.cedar": "python"
     },
+    "workbench.iconTheme": "vscode-icons",
     "errorLens.messageBackgroundMode": "none",
     "vsicons.dontShowNewVersionMessage": true,
     "omnisharp.useModernNet": false,
@@ -66,8 +78,7 @@
         "editor.tabSize": 2
     },
     "[python]": {
-        "editor.tabSize": 4,
-        "editor.formatOnType": true
+        "editor.tabSize": 4
     },
     "[javascript]": {
         "editor.tabSize": 2
@@ -77,48 +88,15 @@
     },
     "editor.accessibilitySupport": "off",
     "explorer.confirmDelete": false,
-    "python.autoComplete.extraPaths": [
-        "${workspaceFolder}\\cedar\\server\\.venv\\Lib\\site-packages",
-        "${workspaceFolder}\\..\\ResearcherPlatform\\sdk\\ctrl-r\\Python\\lib"
-    ],
-    "python.analysis.extraPaths": [
-        "${workspaceFolder}\\cedar\\server\\.venv\\Lib\\site-packages",
-        "${workspaceFolder}\\..\\ResearcherPlatform\\sdk\\ctrl-r\\Python\\lib"
-    ],
     "errorLens.gutterIconsEnabled": true,
-    // -> --> != == === += -= /= *= ** *** <- <-- <-- ... .. <> <= >= ::  (a -> b) (A => B) 
     "editor.fontFamily": "'LigaConsolas Nerd Font', 'Courier New', monospace",
-    "editor.fontSize": 13,
-    "terminal.integrated.fontSize": 13,
     "editor.minimap.enabled": true,
     "editor.showFoldingControls": "always",
     "workbench.panel.defaultLocation": "bottom",
-    "redhat.telemetry.enabled": true,
     "powershell.integratedConsole.showOnStartup": false,
-    "go.toolsManagement.autoUpdate": true,
-    "haskell.serverEnvironment": {    
-        "GHCUP_INSTALL_BASE_PREFIX": "C:\\Users\\ddriver"
-    },
-    "haskell.serverExecutablePath": "C:\\Users\\ddriver\\ghcup\\bin\\haskell-language-server-wrapper-1.8.0.0.exe",
-    "haskell.formattingProvider": "stylish-haskell",
-    "haskell.ghcupExecutablePath": "C:\\Users\\ddriver\\ghcup\\bin\\ghcup.exe",
-    "haskell.manageHLS": "PATH",
-    "haskell.toolchain": {
-        "ghc": "9.4.2",
-        "cabal": "recommended",
-        "stack": "recommended",
-        "hls": "latest"
-    },
-    "markdown.styles": [
-        "https://use.fontawesome.com/releases/v5.7.1/css/all.css"
-    ],
-    "python.analysis.inlayHints.functionReturnTypes": true,
-    "python.analysis.inlayHints.variableTypes": false,
-    "FSharp.suggestGitignore": false,
-    "isort.showNotifications": "always",
-    "[json]": {
-        "editor.defaultFormatter": "vscode.json-language-features"
-    },
-    "metals.serverVersion": "0.11.10+118-2be84509-SNAPSHOT",
-    "workbench.iconTheme": "material-icon-theme"
+    "editor.suggestSelection": "first",
+    "editor.suggest.snippetsPreventQuickSuggestions": false,
+    "git.autofetch": true,
+    "workbench.startupEditor": "none",
+    "workbench.colorTheme": "Quiet Light"
 }

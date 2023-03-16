@@ -11,11 +11,7 @@ import fnmatch
 import platform
 
 import queries
-from common_tools import exec_lines
-from common_tools import pretty_targets
-from common_tools import print_trimmed
-from common_tools import temporary_filename
-from common_tools import change_cwd
+from common_tools import (change_cwd, exec_lines, get_buck_root, pretty_targets, print_trimmed, print_command, temporary_filename)
 
 # Lazily compute buck_root. Stored in function attribute.
 def get_buck_root():
@@ -131,7 +127,7 @@ def invoke_buck(args, report=True):
         cmd = ["buck"] + args
         if report:
             cmd.extend(["--build-report", report_file])
-        print_trimmed(cmd)
+        print_command(cmd)
         result = subprocess.call(cmd)
         if result != 0:
             print("buck exited with errors")
@@ -206,11 +202,34 @@ def find_runnable(target, modes, results):
     # if there was no target output, we probably built a command
     # alias - let's try to find the actual target exe and environment:
     cmd = ["buck", "run", "--print-command"] + modes + [target]
-    print_trimmed(cmd)
+    print_command(cmd)
     result = subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.DEVNULL)
     result = result.stdout.decode("utf-8")
     result = json.loads(result)
     return result["args"], result["env"]
+
+
+def buck_run(modes, target, rest):
+    buck_rest, debug_rest = get_passthru_args(rest)
+
+    build_database = buck_build(modes, target, buck_rest)
+    results = build_database["results"]
+    target = prompt_target("choose run target: ", results)
+    if results[target]["success"]:
+        runnable, env = find_runnable(target, modes, results)
+        cmd = [os.path.join(get_buck_root(), runnable[0])] + runnable[1:] + debug_rest
+        print_command(cmd)
+        return subprocess.call(cmd, env=env)
+    return 1
+
+
+def buck_test(modes, target, rest):
+    return invoke_buck(["test"] + modes + [target] + rest)
+
+
+def buck_targets(modes, target, rest):
+    cmd = ["buck", "targets"] + modes + [target] + rest
+    return sorted(exec_lines(cmd))
 
 
 def run_devserver_debugger(binary, env, dbg_params, exe_params):
@@ -254,7 +273,7 @@ def run_devserver_debugger(binary, env, dbg_params, exe_params):
         ]
         + exe_params
     )
-    print_trimmed(cmd)
+    print_command(cmd)
     # for linux devservers we're going to keep things interactive and wait for exit:
     return subprocess.call(cmd, env=env)
 
@@ -264,7 +283,7 @@ def run_vs_debugger(binary, env, dbg_params, exe_params):
     # find later so it would remember breakpoints and whatnot but we're not that smart yet, and
     # if folks want to get that fancy they can probably use vsgo
     cmd = [vs_path] + dbg_params + ["/debugexe", binary] + exe_params
-    print_trimmed(cmd)
+    print_command(cmd)
     return subprocess.Popen(cmd, env=env)
 
 
@@ -273,7 +292,7 @@ def run_windbg_debugger(binary, env, dbg_params, exe_params):
     # find later so it would remember breakpoints and whatnot but we're not that smart yet, and
     # if folks want to get that fancy they can probably use vsgo
     cmd = [windbg_path] + dbg_params + [binary] + exe_params
-    print_trimmed(cmd)
+    print_command(cmd)
     return subprocess.Popen(cmd, env=env)
 
 
