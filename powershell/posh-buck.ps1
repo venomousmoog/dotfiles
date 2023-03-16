@@ -19,7 +19,8 @@ function tidy { python3 $bpath\run_clang_tidy.py @args }
 function bmode(
     [string]$Mode,
     [switch]$Clear,
-    [switch]$None)
+    [switch]$None,
+    [switch]$Auto)
 {
     if ($Clear) {
         if (Test-Path env:BUCK_MODE) {
@@ -29,12 +30,15 @@ function bmode(
     elseif ($None) {
         $env:BUCK_MODE = "@"
     }
-    elseif ($Mode) {
+    elseif ($Auto) {
         $env:BUCK_MODE = "@" + $Mode
+    }
+    elseif ($Mode) {
+        $env:BUCK_MODE = "@" + "auto"
     }
 
     # print current ode
     Push-Location $bpath
-    python3 -c "from common_tools import get_default_mode; print(f'{get_default_mode()}')"
+    python3 -c "from b import get_default_mode; print(f'{get_default_mode()}')"
     Pop-Location
 }

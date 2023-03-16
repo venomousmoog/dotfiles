@@ -42,18 +42,18 @@ Import-Module "$scriptPath\listing.ps1"
 Import-Module "$scriptPath\disk-usage.ps1"
 Import-Module "$scriptPath\posh-buck.ps1"
 
-function Get-CommandLocation {
-    $path = (Get-Command @args -ErrorAction Ignore).Path
-    if (!$path) {
-        Write-Error -Message "'$args' not found." -Category ObjectNotFound
-    }
-    $path
-}
+# function Get-CommandLocation {
+#     $path = (Get-Command @args -ErrorAction Ignore).Path
+#     if (-not $path) {
+#         Write-Error -Message "'$args' not found." -Category ObjectNotFound
+#     }
+#     $path
+# }
 if (Test-Path alias:where) {
     Remove-Item alias:where -Force
 }
-Set-Alias -Name where -Value Get-CommandLocation -Option AllScope
-Set-Alias -Name which -Value Get-CommandLocation -Option AllScope
+Set-Alias -Name where -Value Get-Command -Option AllScope
+Set-Alias -Name which -Value Get-Command -Option AllScope
 
 Set-PSReadlineKeyHandler -Key Tab -Function MenuComplete
 

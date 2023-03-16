@@ -61,7 +61,8 @@
         "editor.tabSize": 2
     },
     "[python]": {
-        "editor.tabSize": 4
+        "editor.tabSize": 4,
+        "editor.formatOnType": true
     },
     "[javascript]": {
         "editor.tabSize": 2
@@ -80,6 +81,7 @@
         "${workspaceFolder}\\..\\ResearcherPlatform\\sdk\\ctrl-r\\Python\\lib"
     ],
     "errorLens.gutterIconsEnabled": true,
+    // -> --> != == === += -= /= *= ** *** <- <-- <-- ... .. 
     "editor.fontFamily": "'LigaConsolas Nerd Font', 'Courier New', monospace",
     "editor.minimap.enabled": true,
     "editor.showFoldingControls": "always",
@@ -109,5 +111,6 @@
     "isort.showNotifications": "always",
     "[json]": {
         "editor.defaultFormatter": "vscode.json-language-features"
-    }
+    },
+    "metals.serverVersion": "0.11.10+118-2be84509-SNAPSHOT"
 }

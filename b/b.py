@@ -6,17 +6,111 @@ import os
 import platform
 import subprocess
 import sys
+import toml
+import fnmatch
+import platform
 
 import queries
-from common_tools import change_cwd
 from common_tools import exec_lines
-from common_tools import get_buck_root
 from common_tools import pretty_targets
 from common_tools import print_trimmed
 from common_tools import temporary_filename
-from common_tools import get_default_mode
+from common_tools import change_cwd
+
+# Lazily compute buck_root. Stored in function attribute.
+def get_buck_root():
+    if not hasattr(get_buck_root, "inner"):
+        result = subprocess.run(
+            ["buck", "root"], stdout=subprocess.PIPE, stderr=subprocess.DEVNULL
+        )
+        result = result.stdout.decode("utf-8")
+        get_buck_root.inner = result.strip()
+
+    return get_buck_root.inner
+
+def get_absolute_buck_root():
+    if not hasattr(get_absolute_buck_root, "inner"):
+        root = get_buck_root()
+        parent = os.path.dirname(root)                
+        while True:
+            try:
+                with change_cwd(parent):
+                    next = subprocess.run(
+                        ["buck", "root"], stdout=subprocess.PIPE, stderr=subprocess.DEVNULL
+                    )
+
+                next = next.stdout.decode("utf-8")
+                if not next:
+                    break
+
+                root = next
+                parent = os.path.dirname(root)                
+            except subprocess.CalledProcessError:
+                break
+
+        get_absolute_buck_root.inner = root
+
+    return get_absolute_buck_root.inner
+
+
+def get_cell_root(cell: str):
+    if not hasattr(get_cell_root, "cells"):
+        cells = {}
+        for line in exec_lines(["buck", "audit", "cell"], quiet=True):
+            c, p = line.split(': ', 2)
+            cells[c] = p
+
+        get_cell_root.cells = cells
+
+    cells = get_cell_root.cells
+    return cells[cell]
+
+
+def get_target_path(target):
+    """return the path to the target relative to the enlistment root"""
+    cell = ''
+    path = target
+    if '//' in target:
+        cell, path = target.split('//', 2)
+
+    if path.endswith('...'):
+        path = path[:-3]
+
+    if ':' in path:
+        path, _ = target.rsplit(':', 2)
+
+    root = get_buck_root()
+    if cell:
+        root = get_cell_root(cell)
+
+    return os.path.normpath(os.path.join(root, path)).replace("\\", "/")
+
+def get_default_mode():
+    if os.getenv("BUCK_MODE"):
+        env_mode = os.getenv("BUCK_MODE")
+        if env_mode and len(env_mode) > 1:
+            return env_mode
+        else:
+            return None
+
+    return "@auto-dbg"
 
 default_mode = get_default_mode()
+
+def get_target_auto_mode(target: str, flavor: str):
+    auto_mode_file = get_target_path("fbcode//buck_auto_mode/data/buck_auto_mode.toml")
+    modes = toml.load(auto_mode_file)
+    target_path = os.path.relpath(get_target_path(target), get_absolute_buck_root()).replace("\\", "/") + '/'
+
+    for project in modes['Project']:
+        for path in project['paths']:
+            if fnmatch.fnmatch(path, target_path):
+                print(f'matched {target_path} to {project}')
+                platform_section = project.get(platform.system().lower(), None)
+                if platform_section:
+                    return platform_section.get(flavor, None)
+
+    return None
 
 vs_path = "c:\\Program Files (x86)\\Microsoft Visual Studio\\2019\\Professional\\Common7\\IDE\\devenv.exe"
 windbg_path = os.path.join(
@@ -64,10 +158,6 @@ def prompt_target(str, results):
     else:
         print("no target found")
         sys.exit(1)
-
-
-def buck_build(modes, target, rest):
-    return invoke_buck(["build"] + modes + [target] + rest)
 
 
 # pass thru args after a --
@@ -121,29 +211,6 @@ def find_runnable(target, modes, results):
     result = result.stdout.decode("utf-8")
     result = json.loads(result)
     return result["args"], result["env"]
-
-
-def buck_run(modes, target, rest):
-    buck_rest, debug_rest = get_passthru_args(rest)
-
-    build_database = buck_build(modes, target, buck_rest)
-    results = build_database["results"]
-    target = prompt_target("choose run target: ", results)
-    if results[target]["success"]:
-        runnable, env = find_runnable(target, modes, results)
-        cmd = [os.path.join(get_buck_root(), runnable[0])] + runnable[1:] + debug_rest
-        print_trimmed(cmd)
-        return subprocess.call(cmd, env=env)
-    return 1
-
-
-def buck_test(modes, target, rest):
-    return invoke_buck(["test"] + modes + [target] + rest)
-
-
-def buck_targets(modes, target, rest):
-    cmd = ["buck", "targets"] + modes + [target] + rest
-    return sorted(exec_lines(cmd))
 
 
 def run_devserver_debugger(binary, env, dbg_params, exe_params):
@@ -210,6 +277,45 @@ def run_windbg_debugger(binary, env, dbg_params, exe_params):
     return subprocess.Popen(cmd, env=env)
 
 
+def save_buck_query(modes, query, output):
+    targets = buck_query(modes, query)
+    print(pretty_targets(targets))
+    with open(output, "w") as f:
+        for target in targets:
+            f.write(target + "\n")
+    # return the first target as an "info" target:
+    if targets: 
+        return targets[0]
+    else:
+        return None
+
+
+def buck_build(modes, target, rest):
+    return invoke_buck(["build"] + modes + [target] + rest)
+
+
+def buck_run(modes, target, rest):
+    buck_rest, debug_rest = get_passthru_args(rest)
+
+    build_database = buck_build(modes, target, buck_rest)
+    results = build_database["results"]
+    target = prompt_target("choose run target: ", results)
+    if results[target]["success"]:
+        runnable, env = find_runnable(target, modes, results)
+        cmd = [os.path.join(get_buck_root(), runnable[0])] + runnable[1:] + debug_rest
+        print_trimmed(cmd)
+        return subprocess.call(cmd, env=env)
+    return 1
+
+
+def buck_test(modes, target, rest):
+    return invoke_buck(["test"] + modes + [target] + rest)
+
+
+def buck_targets(modes, target, rest):
+    cmd = ["buck", "targets"] + modes + [target] + rest
+    return sorted(exec_lines(cmd))
+
 def buck_debug(modes, target, rest):
     buck_rest, debug_rest = get_passthru_args(rest)
     build_database = buck_build(modes, target, buck_rest)
@@ -233,23 +339,13 @@ def buck_debug(modes, target, rest):
         if platform.system() == "Linux":
             run_devserver_debugger(exe, env, dbg_params, exe_params + runnable[1:])
         else:
+            # run_windbg_debugger(exe, env, dbg_params, exe_params + runnable[1:])
             run_vs_debugger(exe, env, dbg_params, exe_params + runnable[1:])
-
-
-#      run_windbg_debugger(exe, env, dbg_params, exe_params + runnable[1:])
 
 
 def buck_query(modes, query, rest=[], quiet=False):
     cmd = ["buck", "query"] + modes + [query] + rest
     return sorted(exec_lines(cmd, quiet=quiet))
-
-
-def save_buck_query(modes, query, output):
-    targets = buck_query(modes, query)
-    print(pretty_targets(targets))
-    with open(output, "w") as f:
-        for target in targets:
-            f.write(target + "\n")
 
 
 def targets(modes, query, rest=[]):
@@ -299,6 +395,14 @@ def targetsq(modes, target, rest):
     for t in targets:
         print(t)
 
+def test_modes(modes, target, rest):
+    print(f'modes = {modes}')
+    print(f'target = {target}')
+    print(f'rest = {rest}')
+    print(f'target_path = {get_target_path(target)}')
+    print(f'target_mode = {get_target_auto_mode(target, "dbg")}')
+    print(f'current root = {get_buck_root()}')
+    print(f'abs root = {get_absolute_buck_root()}')
 
 # Aliases - just replace anything in the command line that starts with # with this:
 aliases = {
@@ -320,6 +424,7 @@ if __name__ == "__main__":
         "testq": testq,
         "debugq": debugq,
         "targetsq": targetsq,
+        "tests": test_modes,
     }
 
     if len(sys.argv) <= 1:

@@ -22,18 +22,6 @@ def get_buck_root():
         get_buck_root.inner = result.strip()
     return get_buck_root.inner
 
-def get_default_mode():
-    if os.getenv("BUCK_MODE"):
-        env_mode = os.getenv("BUCK_MODE")
-        if len(env_mode) > 1:
-            return env_mode
-        else:
-            return None
-    elif platform.system() == "Linux":
-        return "@arvr/mode/linux/dev"
-    else:
-        return "@arvr/mode/win/opt"
-
 @contextlib.contextmanager
 def temporary_filename(suffix=None):
     """Context that introduces a temporary file.
@@ -139,7 +127,7 @@ def exec_lines(cmd, stop_on_error=True, quiet=False):
     if not quiet:
         print_trimmed(cmd)
     try:
-        result = subprocess.check_output(cmd)
+        result = subprocess.check_output(cmd, stderr=subprocess.DEVNULL)
     except subprocess.CalledProcessError as exc:
         if stop_on_error:
             print("command failure: ", exc.returncode, exc.output)
