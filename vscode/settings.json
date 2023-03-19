@@ -18,10 +18,12 @@
     },
     "cSpell.userWords": [
         "arvr",
+        "BUGBUG",
         "ddriver",
         "ndarray",
         "openai",
-        "pyright"
+        "pyright",
+        "todohighlight"
     ],
     "editor.fontLigatures": true,
     "todohighlight.isEnable": true,
@@ -119,5 +121,9 @@
     "[json]": {
         "editor.defaultFormatter": "vscode.json-language-features"
     },
-    "workbench.iconTheme": "material-icon-theme"
+    "workbench.iconTheme": "material-icon-theme",
+    "pddlParser.executableOrService": "c:\\Users\\ddriver\\AppData\\Roaming\\Code - Insiders\\User\\globalStorage\\jan-dolejsi.pddl\\val\\Val-20210401.1-win64\\bin\\Parser.exe",
+    "pddl.validatorPath": "c:\\Users\\ddriver\\AppData\\Roaming\\Code - Insiders\\User\\globalStorage\\jan-dolejsi.pddl\\val\\Val-20210401.1-win64\\bin\\Validate.exe",
+    "pddl.valueSeqPath": "c:\\Users\\ddriver\\AppData\\Roaming\\Code - Insiders\\User\\globalStorage\\jan-dolejsi.pddl\\val\\Val-20210401.1-win64\\bin\\ValueSeq.exe",
+    "pddl.valStepPath": "c:\\Users\\ddriver\\AppData\\Roaming\\Code - Insiders\\User\\globalStorage\\jan-dolejsi.pddl\\val\\Val-20210401.1-win64\\bin\\ValStep.exe"
 }

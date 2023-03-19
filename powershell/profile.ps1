@@ -30,11 +30,24 @@ Import-Module Terminal-Icons
 Add-TerminalIconsColorTheme "$scriptPath/ddriver.theme.psd1"
 Set-TerminalIconsTheme -ColorTheme ddriver
 
+# helper to figure out what commands might be installed
+Function Test-CommandExists
+{
+    Param ($command)
+    $oldPreference = $ErrorActionPreference
+    $ErrorActionPreference = ‘stop’
+    try { if (Get-Command $command) { RETURN $true } }
+    Catch { RETURN $false }
+    Finally { $ErrorActionPreference = $oldPreference }
+}
+
 # configure bat styles and point less to it
 $env:BAT_THEME="zenburn"
 $env:BAT_STYLE="grid,numbers"
-Set-Alias -Name less -Value bat -Option AllScope
-
+if (Test-CommandExists "bat")
+{
+    Set-Alias -Name less -Value bat -Option AllScope
+}
 # additional tools and modules
 Import-Module z
 Import-Module posh-git
