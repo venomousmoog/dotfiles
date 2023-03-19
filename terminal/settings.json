@@ -1,7 +1,7 @@
 {
     "$help": "https://aka.ms/terminal-documentation",
     "$schema": "https://aka.ms/terminal-profiles-schema",
-    "actions": 
+    "actions":
     [
         {
             "command": "find",
@@ -12,7 +12,7 @@
             "keys": "ctrl+v"
         },
         {
-            "command": 
+            "command":
             {
                 "action": "copy",
                 "singleLine": false
@@ -20,7 +20,7 @@
             "keys": "ctrl+c"
         },
         {
-            "command": 
+            "command":
             {
                 "action": "splitPane",
                 "split": "auto",
@@ -33,7 +33,7 @@
             "keys": "ctrl+shift+t"
         },
         {
-            "command": 
+            "command":
             {
                 "action": "newTab"
             },
@@ -43,23 +43,29 @@
     "copyFormatting": "none",
     "copyOnSelect": false,
     "defaultProfile": "{574e775e-4f2a-5b96-ac1e-a2962a402336}",
-    "profiles": 
+    "newTabMenu":
+    [
+        {
+            "type": "remainingProfiles"
+        }
+    ],
+    "profiles":
     {
-        "defaults": 
+        "defaults":
         {
             "cursorShape": "vintage",
             "experimental.retroTerminalEffect": false,
-            "font": 
+            "font":
             {
                 "face": "LigaConsolas Nerd Font",
-                "features": 
+                "features":
                 {
                     "calt": 0
                 },
                 "size": 11.0
             }
         },
-        "list": 
+        "list":
         [
             {
                 "guid": "{61c54bbd-c2c6-5271-96e7-009a87ff44bf}",
@@ -99,43 +105,35 @@
                 "source": "Windows.Terminal.PowershellCore"
             },
             {
-                "altGrAliasing": true,
-                "antialiasingMode": "grayscale",
-                "closeOnExit": "automatic",
-                "colorScheme": "Campbell",
                 "commandline": "ssh ddriver@our.ddriver.sb.facebook.com",
-                "cursorShape": "bar",
                 "guid": "{a296e80f-f011-4b4d-858b-5a8d97fa6395}",
                 "hidden": false,
-                "historySize": 9001,
                 "icon": "ms-appx:///ProfileIcons/{61c54bbd-c2c6-5271-96e7-009a87ff44bf}.png",
                 "name": "devserver",
-                "padding": "8, 8, 8, 8",
-                "snapOnInput": true,
-                "startingDirectory": "%USERPROFILE%",
-                "useAcrylic": false
-            },
-            {
-                "guid": "{f9ceaf27-504c-58d7-927c-d1d6a7ac7d3c}",
-                "hidden": false,
-                "name": "Ubuntu 22.04.1 LTS",
-                "source": "CanonicalGroupLimited.Ubuntu22.04LTS_79rhkp1fndgsc"
-            },
-            {
-                "guid": "{17bf3de4-5353-5709-bcf9-835bd952a95e}",
-                "hidden": true,
-                "name": "Ubuntu-22.04",
-                "source": "Windows.Terminal.Wsl"
             },
             {
                 "guid": "{16208362-94fc-5b1f-a491-5b2624d5ab56}",
                 "hidden": true,
                 "name": "Visual Studio Debug Console",
                 "source": "VSDebugConsole"
+            },
+            {
+                "commandline": "ssh dave@192.168.1.24",
+                "hidden": false,
+                "icon": "ms-appx:///ProfileIcons/{61c54bbd-c2c6-5271-96e7-009a87ff44bf}.png",
+                "name": "mini",
+                "startingDirectory": "%USERPROFILE%",
+            },
+            {
+                "commandline": "ssh -i .\\OneDrive\\keys\\vpngate.pem ddriver@20.38.14.35",
+                "hidden": false,
+                "icon": "ms-appx:///ProfileIcons/{61c54bbd-c2c6-5271-96e7-009a87ff44bf}.png",
+                "name": "vpngate",
+                "startingDirectory": "%USERPROFILE%",
             }
         ]
     },
-    "schemes": 
+    "schemes":
     [
         {
             "background": "#0C0C0C",

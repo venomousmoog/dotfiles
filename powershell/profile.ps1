@@ -8,6 +8,14 @@ while ($null -ne (Get-Item $scriptFile).LinkType) {
 $scriptPath = Split-Path $scriptFile
 Write-Host "profile from $scriptFile"
 
+# helper to figure out what commands might be installed
+Function Test-CommandExists
+{
+    Param ($command)
+    try { if (Get-Command $command -ErrorAction "stop") { RETURN $true } }
+    Catch { RETURN $false }
+}
+
 # add a roaming modules path
 $env:PSModulePath += [System.IO.Path]::PathSeparator + "$($scriptPath)/Modules"
 
@@ -42,12 +50,13 @@ Function Test-CommandExists
 }
 
 # configure bat styles and point less to it
-$env:BAT_THEME="zenburn"
-$env:BAT_STYLE="grid,numbers"
 if (Test-CommandExists "bat")
 {
+    $env:BAT_THEME="zenburn"
+    $env:BAT_STYLE="grid,numbers"
     Set-Alias -Name less -Value bat -Option AllScope
 }
+
 # additional tools and modules
 Import-Module z
 Import-Module posh-git
@@ -59,18 +68,18 @@ Import-Module "$scriptPath\listing.ps1"
 Import-Module "$scriptPath\disk-usage.ps1"
 Import-Module "$scriptPath\posh-buck.ps1"
 
-function Get-CommandLocation {
-    $path = (Get-Command @args -ErrorAction Ignore).Path
-    if (!$path) {
-        Write-Error -Message "'$args' not found." -Category ObjectNotFound
-    }
-    $path
-}
+# function Get-CommandLocation {
+#     $path = (Get-Command @args -ErrorAction Ignore).Path
+#     if (-not $path) {
+#         Write-Error -Message "'$args' not found." -Category ObjectNotFound
+#     }
+#     $path
+# }
 if (Test-Path alias:where) {
     Remove-Item alias:where -Force
 }
-Set-Alias -Name where -Value Get-CommandLocation -Option AllScope
-Set-Alias -Name which -Value Get-CommandLocation -Option AllScope
+Set-Alias -Name where -Value Get-Command -Option AllScope
+Set-Alias -Name which -Value Get-Command -Option AllScope
 
 Set-PSReadlineKeyHandler -Key Tab -Function MenuComplete
 
