@@ -125,7 +125,7 @@ def get_target_auto_mode(target: str, flavor: str):
             if fnmatch(target_path, pattern):
                 platform_section = project.get(platform.system().lower(), None)
                 if platform_section:
-                    for f in set([flavor, "dbg", "opt", "asan", "tsan"]):
+                    for f in [flavor, "dbg", "dev", "opt", "asan", "tsan"]:
                         if f in platform_section:
                             chosen_mode = ""
                             if isinstance(platform_section[f], list):
@@ -134,7 +134,7 @@ def get_target_auto_mode(target: str, flavor: str):
                                 chosen_mode = platform_section[f]
 
                             # now we have to make the chosen mode relative to our local buck root:
-                            return "@" + os.path.relpath(os.path.join(get_absolute_buck_root(), chosen_mode), get_buck_root())
+                            return "@//" + os.path.relpath(os.path.join(get_absolute_buck_root(), chosen_mode), get_buck_root())
 
                     return None
     return None
