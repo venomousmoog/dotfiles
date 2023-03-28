@@ -58,6 +58,10 @@
             "font":
             {
                 "face": "LigaConsolas Nerd Font",
+                "features":
+                {
+                    "calt": 1
+                },
                 "size": 10.0
             }
         },
@@ -118,6 +122,13 @@
                 "hidden": false,
                 "icon": "ms-appx:///ProfileIcons/{61c54bbd-c2c6-5271-96e7-009a87ff44bf}.png",
                 "name": "mini",
+                "startingDirectory": "%USERPROFILE%",
+            },
+            {
+                "commandline": "ssh -i .\\OneDrive\\keys\\seattle_router ddriver@192.168.1.1 -p 8919",
+                "hidden": false,
+                "icon": "ms-appx:///ProfileIcons/{61c54bbd-c2c6-5271-96e7-009a87ff44bf}.png",
+                "name": "router",
                 "startingDirectory": "%USERPROFILE%",
             },
             {
