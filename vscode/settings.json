@@ -13,15 +13,17 @@
     "workbench.colorCustomizations": {
         "[Quiet Light]": {
             "editor.background": "#FFFFFF",
-            "editor.lineHighlightBackground": "#F9F9F9",
-        },
+            "editor.lineHighlightBackground": "#F9F9F9"
+        }
     },
     "cSpell.userWords": [
         "arvr",
+        "BUGBUG",
         "ddriver",
         "ndarray",
         "openai",
-        "pyright"
+        "pyright",
+        "todohighlight"
     ],
     "editor.fontLigatures": true,
     "todohighlight.isEnable": true,
@@ -33,7 +35,7 @@
         "overviewRulerColor": "#ffab00",
         "cursor": "pointer",
         "border": "1px solid #eee",
-        "borderRadius": "2px",
+        "borderRadius": "2px"
     },
     "security.workspace.trust.untrustedFiles": "open",
     "files.associations": {
@@ -119,6 +121,6 @@
     "[json]": {
         "editor.defaultFormatter": "vscode.json-language-features"
     },
-    "metals.serverVersion": "0.11.10+118-2be84509-SNAPSHOT",
-    "workbench.iconTheme": "material-icon-theme"
+    "workbench.iconTheme": "material-icon-theme",
+    "metals.serverVersion": "0.11.10+118-2be84509-SNAPSHOT"
 }

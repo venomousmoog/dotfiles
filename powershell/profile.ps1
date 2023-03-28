@@ -38,6 +38,17 @@ Import-Module Terminal-Icons
 Add-TerminalIconsColorTheme "$scriptPath/ddriver.theme.psd1"
 Set-TerminalIconsTheme -ColorTheme ddriver
 
+# helper to figure out what commands might be installed
+Function Test-CommandExists
+{
+    Param ($command)
+    $oldPreference = $ErrorActionPreference
+    $ErrorActionPreference = ‘stop’
+    try { if (Get-Command $command) { RETURN $true } }
+    Catch { RETURN $false }
+    Finally { $ErrorActionPreference = $oldPreference }
+}
+
 # configure bat styles and point less to it
 if (Test-CommandExists "bat")
 {
