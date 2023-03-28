@@ -58,11 +58,7 @@
             "font":
             {
                 "face": "LigaConsolas Nerd Font",
-                "features":
-                {
-                    "calt": 0
-                },
-                "size": 11.0
+                "size": 10.0
             }
         },
         "list":
