@@ -1,6 +1,7 @@
 # Buck Helper SCripts
 
 ## b.py
+
 ```b.py``` is a helper script to make it easier to run common buck commands.  There are a few things that this script helps with:
 
 1) Avoid frequent typing tasks (like having to add @arvr/mode/blah).  By default, ```b.py``` will chose ```@arvr/mode/win/cuda10/dev``` on windows, and ```@arvr/mode/linux/dev``` on Linux.
@@ -13,12 +14,13 @@ b.py was originally build for windows, and also runs on a devserver.
 
 ### Modes
 
-If there is a mode specified on the command line, the tool will use that, otherwise it will look in the environment for BUCK_MODE, and if it doesn't find that, it will use the mode @auto-dbg
+If there is a mode specified on the command line, the tool will use that, otherwise it will look in the environment for BUCK_MODE, and if it doesn't find that, it will use the mode `@auto-dev`.
 
 Modes beginning with `@auto-` are special - when they exist, b.py will find the buck_auto_modes file and load the appropriate auto mode for the current targets, using anything after the - as the flavor
-selector - so for example, @auto-dbg will prefer a `dbg` flavor if one exists, otherwise it will search in the order `dbg`, `dev`, `opt`. 
+selector - so for example, `@auto-dbg` will prefer a `dbg` flavor if one exists, otherwise it will search in the order `dbg`, `dev`, `opt`.
 
 ### Examples
+
 ```
 usage: b command [@mode] [target/query] [options]
  default mode: @auto-dbg
@@ -34,6 +36,7 @@ usage: b command [@mode] [target/query] [options]
 My most frequent usage during development is to just use ```bb``` (from the aliases below) in the directory I'm currently working in.
 
 ### Aliases
+
 In ```aliases.cmd``` (for Windows) and ```aliases.sh``` (for Linux) are some nice default aliases to make invoking b.py easier.  In no particular order, they are:
 
 |alias|command|
@@ -47,5 +50,3 @@ In ```aliases.cmd``` (for Windows) and ```aliases.sh``` (for Linux) are some nic
 |bg|python3 b.py targets [rest]|
 |bbq|python3 b.py buildq [rest]|
 |brq|python3 b.py runq [rest]|
-
-

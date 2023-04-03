@@ -109,7 +109,7 @@ def get_default_mode():
         else:
             return None
 
-    return "@auto-dbg"
+    return "@auto-dev"
 
 default_mode = get_default_mode()
 
@@ -228,7 +228,7 @@ def find_output_or_fail(target):
 
 def find_runnable(target, modes, results):
     runnable = find_output(results[target])
-    if runnable != None and not runnable.endswith(".par"):
+    if runnable != None:
         return [runnable], os.environ
 
     # if there was no target output, we probably built a command
@@ -253,10 +253,6 @@ def buck_run(modes, target, rest):
         print_command(cmd)
         return subprocess.call(cmd, env=env)
     return 1
-
-
-def buck_test(modes, target, rest):
-    return invoke_buck(["test"] + modes + [target] + rest)
 
 
 def buck_targets(modes, target, rest):
@@ -346,7 +342,7 @@ def buck_build(modes, target, rest):
 
 
 def buck_test(modes, target, rest):
-    return invoke_buck(["test"] + modes + [target] + rest)
+    return invoke_buck(["test"] + modes + [target] + rest, report=False)
 
 
 def buck_targets(modes, target, rest):
