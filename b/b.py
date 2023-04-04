@@ -125,7 +125,7 @@ def get_target_auto_mode(target: str, flavor: str):
             if fnmatch(target_path, pattern):
                 platform_section = project.get(platform.system().lower(), None)
                 if platform_section:
-                    for f in [flavor, "dbg", "dev", "opt", "asan", "tsan"]:
+                    for f in [flavor, "dev", "dbg", "opt", "asan", "tsan"]:
                         if f in platform_section:
                             chosen_mode = ""
                             if isinstance(platform_section[f], list):
