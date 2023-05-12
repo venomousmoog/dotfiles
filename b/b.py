@@ -360,7 +360,7 @@ def run_vscode_debugger(binary, env, dbg_params, exe_params):
     }}
     """
     with open(os.path.join(get_absolute_buck_root(), ".vscode/launch.json"), "w") as f:
-        output = vscode_launch_template.format(path=binary, root=get_absolute_buck_root(), args = exe_params)
+        output = vscode_launch_template.format(path=binary, root=get_absolute_buck_root(), args = json.dumps(exe_params))
         f.write(output)
 
 def save_buck_query(modes, query, output):
