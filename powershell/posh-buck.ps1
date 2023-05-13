@@ -30,10 +30,12 @@ function bmode(
     elseif ($None) {
         $env:BUCK_MODE = "@"
     }
-    elseif ($Auto) {
+    elseif ($Mode) {
+        Write-Host "setting new mode"
         $env:BUCK_MODE = "@" + $Mode
     }
-    elseif ($Mode) {
+    elseif ($Auto) {
+        Write-Host "setting auto mode"
         $env:BUCK_MODE = "@" + "auto"
     }
 

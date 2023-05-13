@@ -109,7 +109,7 @@ def get_default_mode():
         else:
             return None
 
-    return "@auto-dbg"
+    return "@auto-dev"
 
 default_mode = get_default_mode()
 
@@ -125,7 +125,7 @@ def get_target_auto_mode(target: str, flavor: str):
             if fnmatch(target_path, pattern):
                 platform_section = project.get(platform.system().lower(), None)
                 if platform_section:
-                    for f in [flavor, "dbg", "dev", "opt", "asan", "tsan"]:
+                    for f in [flavor, "dev", "dbg", "opt", "asan", "tsan"]:
                         if f in platform_section:
                             chosen_mode = ""
                             if isinstance(platform_section[f], list):
@@ -228,7 +228,7 @@ def find_output_or_fail(target):
 
 def find_runnable(target, modes, results):
     runnable = find_output(results[target])
-    if runnable != None and not runnable.endswith(".par"):
+    if runnable != None:
         return [runnable], os.environ
 
     # if there was no target output, we probably built a command
@@ -253,10 +253,6 @@ def buck_run(modes, target, rest):
         print_command(cmd)
         return subprocess.call(cmd, env=env)
     return 1
-
-
-def buck_test(modes, target, rest):
-    return invoke_buck(["test"] + modes + [target] + rest)
 
 
 def buck_targets(modes, target, rest):
@@ -327,6 +323,45 @@ def run_windbg_debugger(binary, env, dbg_params, exe_params):
     print_command(cmd)
     return subprocess.Popen(cmd, env=env)
 
+def run_vscode_debugger(binary, env, dbg_params, exe_params):
+    vscode_launch_template = """
+    {{
+        "version": "0.2.0",
+        "configurations": [
+            {{
+                "name": "Launch Buck target",
+                "type": "fb-lldb",
+                "request": "launch",
+                "program": "{path}",
+                "args": {args},
+                "cwd": "{root}",
+                "env": [],
+                "debuggerRoot": "{root}",
+                "sourceMap": [
+                    [
+                        ".",
+                        "{root}"
+                    ],
+                    [
+                        "/home/engshare",
+                        "{root}/fbcode"
+                    ],
+                    [
+                        ".",
+                        "{root}/.."
+                    ],
+                    [
+                        ".",
+                        "{root}/fbcode"
+                    ],
+                ]
+            }},
+        ]
+    }}
+    """
+    with open(os.path.join(get_absolute_buck_root(), ".vscode/launch.json"), "w") as f:
+        output = vscode_launch_template.format(path=binary, root=get_absolute_buck_root(), args = json.dumps(exe_params))
+        f.write(output)
 
 def save_buck_query(modes, query, output):
     targets = buck_query(modes, query)
@@ -346,7 +381,7 @@ def buck_build(modes, target, rest):
 
 
 def buck_test(modes, target, rest):
-    return invoke_buck(["test"] + modes + [target] + rest)
+    return invoke_buck(["test"] + modes + [target] + rest, report=False)
 
 
 def buck_targets(modes, target, rest):
@@ -360,7 +395,7 @@ def buck_debug(modes, target, rest):
     target = prompt_target("choose debug target: ", results)
     if results[target]["success"]:
         runnable, env = find_runnable(target, modes, results)
-        exe = os.path.join(get_buck_root(), runnable[0])
+        exe = os.path.join(get_absolute_buck_root(), runnable[0])
 
         # rest for debugging is a little bit different - if there
         # are commands in rest, they are by default directed to the debuggee.
@@ -374,7 +409,8 @@ def buck_debug(modes, target, rest):
         #
         dbg_params, exe_params = get_debug_args(debug_rest)
         if platform.system() == "Linux":
-            run_devserver_debugger(exe, env, dbg_params, exe_params + runnable[1:])
+            # run_devserver_debugger(exe, env, dbg_params, exe_params + runnable[1:])
+            run_vscode_debugger(exe, env, dbg_params, exe_params + runnable[1:])
         else:
             # run_windbg_debugger(exe, env, dbg_params, exe_params + runnable[1:])
             run_vs_debugger(exe, env, dbg_params, exe_params + runnable[1:])
