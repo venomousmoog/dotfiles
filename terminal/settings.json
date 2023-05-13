@@ -1,7 +1,7 @@
 {
     "$help": "https://aka.ms/terminal-documentation",
     "$schema": "https://aka.ms/terminal-profiles-schema",
-    "actions":
+    "actions": 
     [
         {
             "command": "find",
@@ -12,7 +12,7 @@
             "keys": "ctrl+v"
         },
         {
-            "command":
+            "command": 
             {
                 "action": "copy",
                 "singleLine": false
@@ -20,7 +20,7 @@
             "keys": "ctrl+c"
         },
         {
-            "command":
+            "command": 
             {
                 "action": "splitPane",
                 "split": "auto",
@@ -33,7 +33,7 @@
             "keys": "ctrl+shift+t"
         },
         {
-            "command":
+            "command": 
             {
                 "action": "newTab"
             },
@@ -43,29 +43,29 @@
     "copyFormatting": "none",
     "copyOnSelect": false,
     "defaultProfile": "{574e775e-4f2a-5b96-ac1e-a2962a402336}",
-    "newTabMenu":
+    "newTabMenu": 
     [
         {
             "type": "remainingProfiles"
         }
     ],
-    "profiles":
+    "profiles": 
     {
-        "defaults":
+        "defaults": 
         {
             "cursorShape": "vintage",
             "experimental.retroTerminalEffect": false,
-            "font":
+            "font": 
             {
-                "face": "LigaConsolas Nerd Font",
-                "features":
+                "face": "JetBrainsMono NF",
+                "features": 
                 {
                     "calt": 1
                 },
                 "size": 10.0
             }
         },
-        "list":
+        "list": 
         [
             {
                 "guid": "{61c54bbd-c2c6-5271-96e7-009a87ff44bf}",
@@ -109,7 +109,7 @@
                 "guid": "{a296e80f-f011-4b4d-858b-5a8d97fa6395}",
                 "hidden": false,
                 "icon": "ms-appx:///ProfileIcons/{61c54bbd-c2c6-5271-96e7-009a87ff44bf}.png",
-                "name": "devserver",
+                "name": "devserver"
             },
             {
                 "guid": "{16208362-94fc-5b1f-a491-5b2624d5ab56}",
@@ -118,32 +118,32 @@
                 "source": "VSDebugConsole"
             },
             {
-                "guid": "{20efaabd-92af-4ded-81e2-7cecdc694f11}",
                 "commandline": "%OneDriveConsumer%\\tools\\loop_ssh.cmd dave@192.168.1.24",
+                "guid": "{20efaabd-92af-4ded-81e2-7cecdc694f11}",
                 "hidden": false,
                 "icon": "ms-appx:///ProfileIcons/{61c54bbd-c2c6-5271-96e7-009a87ff44bf}.png",
                 "name": "mini",
-                "startingDirectory": "%USERPROFILE%",
+                "startingDirectory": "%USERPROFILE%"
             },
             {
-                "guid": "{53833f5f-c1bd-4c2a-bdb1-2a4eb2a84d12}",
                 "commandline": "%OneDriveConsumer%\\tools\\loop_ssh.cmd -i .\\OneDrive\\keys\\seattle_router ddriver@192.168.1.1 -p 8919",
+                "guid": "{53833f5f-c1bd-4c2a-bdb1-2a4eb2a84d12}",
                 "hidden": false,
                 "icon": "ms-appx:///ProfileIcons/{61c54bbd-c2c6-5271-96e7-009a87ff44bf}.png",
                 "name": "router",
-                "startingDirectory": "%USERPROFILE%",
+                "startingDirectory": "%USERPROFILE%"
             },
             {
-                "guid": "{b55d373a-8757-4b36-a119-886579573dd1}",
                 "commandline": "%OneDriveConsumer%\\tools\\loop_ssh.cmd -i .\\OneDrive\\keys\\vpngate.pem ddriver@20.38.14.35",
+                "guid": "{b55d373a-8757-4b36-a119-886579573dd1}",
                 "hidden": false,
                 "icon": "ms-appx:///ProfileIcons/{61c54bbd-c2c6-5271-96e7-009a87ff44bf}.png",
                 "name": "vpngate",
-                "startingDirectory": "%USERPROFILE%",
+                "startingDirectory": "%USERPROFILE%"
             }
         ]
     },
-    "schemes":
+    "schemes": 
     [
         {
             "background": "#0C0C0C",
