@@ -19,12 +19,28 @@ Function Test-CommandExists
 # add a roaming modules path
 $env:PSModulePath += [System.IO.Path]::PathSeparator + "$($scriptPath)/Modules"
 
-# add tools to path:
-$env:PATH += [System.IO.Path]::PathSeparator + "$($scriptPath)/Tools/$($PSVersionTable.Platform)"
-$env:PATH += [System.IO.Path]::PathSeparator + "$env:LOCALAPPDATA/Programs/WinMerge"
+# platform paths:
+if ($IsWindows) {
+    $platformName = "Win32NT"
+}
+if ($IsLinux) {
+    $platformName = "Unix"
+}
+if ($IsMacOS) {
+    $platformName = "MacOS"
+}
 
-if ($PSVersionTable.Platform = "Win32NT") {
+# add tools to path:
+$env:PATH += [System.IO.Path]::PathSeparator + "$($scriptPath)/Tools/$($platformName)"
+
+if ($IsWindows) {
     $env:PATH += [System.IO.Path]::PathSeparator + 'C:\Program Files (x86)\Windows Kits\10\Debuggers\x64\'
+    $env:PATH += [System.IO.Path]::PathSeparator + "$env:LOCALAPPDATA/Programs/WinMerge"
+}
+if ($IsMacOS) {
+    $env:PATH += [System.IO.Path]::PathSeparator + '/Users/ddriver/homebrew/bin'
+    $env:PATH += [System.IO.Path]::PathSeparator + '/Users/ddriver/homebrew/sbin'
+    $env:PATH += [System.IO.Path]::PathSeparator + '/Users/ddriver/Library/Android/sdk/platform-tools/'
 }
 
 # disable virtual prompt support (we get this from oh-my-posh)
