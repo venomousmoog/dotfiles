@@ -156,7 +156,7 @@ def filter_mode(args):
 
 def invoke_buck(args, report=True):
     with temporary_filename() as report_file:
-        cmd = ["buck2"] + args
+        cmd = ["buck"] + args
         if report:
             cmd.extend(["--build-report", report_file])
         print_command(cmd)
@@ -360,7 +360,9 @@ def run_vscode_debugger(binary, env, dbg_params, exe_params):
     }}
     """
     with open(os.path.join(get_absolute_buck_root(), ".vscode/launch.json"), "w") as f:
-        output = vscode_launch_template.format(path=binary, root=get_absolute_buck_root(), args = json.dumps(exe_params))
+        def reslash(str):
+            return str.replace("\\", "/")
+        output = vscode_launch_template.format(path=reslash(binary), root=reslash(get_absolute_buck_root()), args = json.dumps(exe_params))
         f.write(output)
 
 def save_buck_query(modes, query, output):
@@ -413,7 +415,7 @@ def buck_debug(modes, target, rest):
             run_vscode_debugger(exe, env, dbg_params, exe_params + runnable[1:])
         else:
             # run_windbg_debugger(exe, env, dbg_params, exe_params + runnable[1:])
-            run_vs_debugger(exe, env, dbg_params, exe_params + runnable[1:])
+            run_vscode_debugger(exe, env, dbg_params, exe_params + runnable[1:])
 
 
 def buck_query(modes, query, rest=[], quiet=False):

@@ -34,8 +34,9 @@ if ($IsMacOS) {
 $env:PATH += [System.IO.Path]::PathSeparator + "$($scriptPath)/Tools/$($platformName)"
 
 if ($IsWindows) {
-    $env:PATH += [System.IO.Path]::PathSeparator + 'C:\Program Files (x86)\Windows Kits\10\Debuggers\x64\'
-    $env:PATH += [System.IO.Path]::PathSeparator + "$env:LOCALAPPDATA/Programs/WinMerge"
+    $env:PATH += [System.IO.Path]::PathSeparator + ${Env:ProgramFiles(x86)} + '\Windows Kits\10\Debuggers\x64\'
+    $env:PATH += [System.IO.Path]::PathSeparator + "$env:LOCALAPPDATA\Programs\WinMerge"
+    $env:PATH += [System.IO.Path]::PathSeparator + "$env:LOCALAPPDATA\Android\sdk\platform-tools\"
 }
 if ($IsMacOS) {
     $env:PATH += [System.IO.Path]::PathSeparator + '/Users/ddriver/homebrew/bin'
