@@ -39,12 +39,11 @@ if ($IsWindows) {
     $env:PATH += [System.IO.Path]::PathSeparator + "$env:LOCALAPPDATA\Android\sdk\platform-tools\"
 }
 if ($IsMacOS) {
-    $env:PATH += [System.IO.Path]::PathSeparator + '/Users/ddriver/homebrew/bin'
-    $env:PATH += [System.IO.Path]::PathSeparator + '/Users/ddriver/homebrew/sbin'
+    $(~/homebrew/bin/brew shellenv) | Invoke-Expression
     $env:PATH += [System.IO.Path]::PathSeparator + '/Users/ddriver/Library/Android/sdk/platform-tools/'
 }
 
-# disable virtual prompt support (we get this from oh-my-posh)
+# disable python virtual environment prompt support (we get this from oh-my-posh)
 $env:VIRTUAL_ENV_DISABLE_PROMPT=1
 
 # oh-my-posh prompt
@@ -85,18 +84,39 @@ Import-Module "$scriptPath\listing.ps1"
 Import-Module "$scriptPath\disk-usage.ps1"
 Import-Module "$scriptPath\posh-buck.ps1"
 
-# function Get-CommandLocation {
-#     $path = (Get-Command @args -ErrorAction Ignore).Path
-#     if (-not $path) {
-#         Write-Error -Message "'$args' not found." -Category ObjectNotFound
-#     }
-#     $path
-# }
+function Find-CommandLocation([String]$command) {
+    $paths = ($env:PATH).Split(':')
+    $found = foreach ($path in $paths) {
+        $testPath = Join-Path $path $command
+        if (Test-Path $testPath) {
+            $testPath
+        }
+    }
+    $found
+}
+
+function Get-CommandLocation {
+    $cmd = (Get-Command @args -ErrorAction Ignore)
+    if (-not $cmd) {
+        Write-Error -Message "'$args' not found." -Category ObjectNotFound
+    } else {
+        $path = if ($cmd.Source) {
+            $cmd.Source
+        } elseif ($cmd.DisplayName) {
+            $cmd.DisplayName
+        } elseif ($cmd.Name) {
+            $cmd.Name
+        }
+        $alt = (Find-CommandLocation @args) | Where-Object { $_ -ne $path }
+
+        @($path) + $alt
+    }
+}
 if (Test-Path alias:where) {
     Remove-Item alias:where -Force
 }
-Set-Alias -Name where -Value Get-Command -Option AllScope
-Set-Alias -Name which -Value Get-Command -Option AllScope
+Set-Alias -Name where -Value Get-CommandLocation -Option AllScope
+Set-Alias -Name which -Value Get-CommandLocation -Option AllScope
 
 Set-PSReadlineKeyHandler -Key Tab -Function MenuComplete
 
