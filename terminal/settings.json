@@ -1,5 +1,4 @@
 {
-    // test
     "$help": "https://aka.ms/terminal-documentation",
     "$schema": "https://aka.ms/terminal-profiles-schema",
     "actions": 
@@ -7,6 +6,15 @@
         {
             "command": "find",
             "keys": "ctrl+shift+f"
+        },
+        {
+            "command": 
+            {
+                "action": "splitPane",
+                "split": "auto",
+                "splitMode": "duplicate"
+            },
+            "keys": "alt+shift+d"
         },
         {
             "command": "paste",
@@ -23,25 +31,16 @@
         {
             "command": 
             {
-                "action": "splitPane",
-                "split": "auto",
-                "splitMode": "duplicate"
+                "action": "newTab"
             },
-            "keys": "alt+shift+d"
+            "keys": "ctrl+t"
         },
         {
             "command": "unbound",
             "keys": "ctrl+shift+t"
-        },
-        {
-            "command": 
-            {
-                "action": "newTab"
-            },
-            "keys": "ctrl+t"
         }
     ],
-    "copyFormatting": true,
+    "copyFormatting": "all",
     "copyOnSelect": false,
     "defaultProfile": "{574e775e-4f2a-5b96-ac1e-a2962a402336}",
     "newTabMenu": 
@@ -58,7 +57,7 @@
             "experimental.retroTerminalEffect": false,
             "font": 
             {
-                "face": "JetBrainsMono NF",
+                "face": "JetBrainsMono NFM",
                 "features": 
                 {
                     "calt": 1
@@ -110,9 +109,8 @@
                 "guid": "{a296e80f-f011-4b4d-858b-5a8d97fa6395}",
                 "hidden": false,
                 "icon": "ms-appx:///ProfileIcons/{61c54bbd-c2c6-5271-96e7-009a87ff44bf}.png",
-                "name": "devserver"
                 "name": "devserver",
-                "startingDirectory": "%USERPROFILE%",
+                "startingDirectory": "%USERPROFILE%"
             },
             {
                 "guid": "{16208362-94fc-5b1f-a491-5b2624d5ab56}",
@@ -145,8 +143,8 @@
                 "startingDirectory": "%USERPROFILE%"
             },
             {
-                "guid": "{aba1eefe-ab9f-40d0-9c04-02447994a96c}",
                 "commandline": "%OneDriveConsumer%\\tools\\loop_ssh.cmd dave@192.168.1.22",
+                "guid": "{aba1eefe-ab9f-40d0-9c04-02447994a96c}",
                 "hidden": false,
                 "icon": "ms-appx:///ProfileIcons/{61c54bbd-c2c6-5271-96e7-009a87ff44bf}.png",
                 "name": "router",
