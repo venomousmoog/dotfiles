@@ -450,6 +450,10 @@ def buck_targets(tool, modes, target, rest):
     return sorted(exec_lines(cmd))
 
 
+def buck_install(tool, modes, target, rest):
+    return invoke_buck(tool, ["install"] + modes + [target] + rest, report=False)
+
+
 def buck_debug(tool, modes, target, rest):
     buck_rest, debug_rest = get_passthru_args(rest)
     build_database = buck_build(tool, modes, target, buck_rest)
@@ -562,6 +566,7 @@ aliases = {
 if __name__ == "__main__":
     commands = {
         "build": buck_build,
+        "install": buck_install,
         "run": buck_run,
         "test": buck_test,
         "debug": buck_debug,
