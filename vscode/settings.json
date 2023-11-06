@@ -89,9 +89,10 @@
     ],
     "errorLens.gutterIconsEnabled": true,
     // -> --> != == === += -= /= *= ** *** <- <-- <-- ... .. <> <= >= ::  (a -> b) (A => B) 
-    "editor.fontFamily": "'LigaConsolas Nerd Font', 'Courier New', monospace",
-    "editor.fontSize": 13,
-    "terminal.integrated.fontSize": 13,
+    "editor.fontFamily": "'JetBrainsMono NF', 'Courier New', monospace",
+    "editor.fontSize": 12,
+    "editor.lineHeight": 18,
+    "terminal.integrated.fontSize": 12,
     "editor.minimap.enabled": true,
     "editor.showFoldingControls": "always",
     "workbench.panel.defaultLocation": "bottom",
@@ -119,7 +120,7 @@
     "FSharp.suggestGitignore": false,
     "isort.showNotifications": "always",
     "[json]": {
-        "editor.defaultFormatter": "vscode.json-language-features"
+        "editor.defaultFormatter": "esbenp.prettier-vscode"
     },
     "workbench.iconTheme": "material-icon-theme",
     "metals.serverVersion": "0.11.10+118-2be84509-SNAPSHOT"
