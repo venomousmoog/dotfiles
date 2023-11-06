@@ -291,7 +291,7 @@ def find_runnable(target, modes, results):
 def buck_run(tool, modes, target, rest):
     buck_rest, debug_rest = get_passthru_args(rest)
 
-    build_database = buck_build(modes, target, buck_rest)
+    build_database = buck_build(tool, modes, target, buck_rest)
     results = build_database["results"]
     target = prompt_target("choose run target: ", results)
     if results[target]["success"]:
@@ -487,20 +487,20 @@ def buck_query(modes, query, rest=[], quiet=False):
     return sorted(exec_lines(cmd, quiet=quiet))
 
 
-def targets(modes, query, rest=[]):
-    results = buck_targets(modes, query, rest)
+def targets(tool, modes, query, rest=[]):
+    results = buck_targets(tool, modes, query, rest)
     for t in pretty_targets(results):
         print(t)
 
 
-def query(modes, query, rest=[]):
-    results = buck_query(modes, query, rest)
+def query(tool, modes, query, rest=[]):
+    results = buck_query(tool, modes, query, rest)
     for t in results:
         print(t)
 
 
-def queryq(modes, query, rest=[]):
-    results = buck_query(modes, query, rest)
+def queryq(tool, modes, query, rest=[]):
+    results = buck_query(tool, modes, query, rest)
     for t in results:
         print(t)
 
