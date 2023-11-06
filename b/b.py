@@ -6,14 +6,21 @@ import os
 import platform
 import subprocess
 import sys
-import toml
-import platform
-
-import queries
 
 from fnmatch import fnmatch
 
-from common_tools import (change_cwd, exec_lines, get_buck_root, pretty_targets, print_trimmed, print_command, temporary_filename)
+import queries
+import toml
+
+from common_tools import (
+    change_cwd,
+    exec_lines,
+    get_buck_root,
+    pretty_targets,
+    print_command,
+    print_trimmed,
+    temporary_filename,
+)
 
 # Lazily compute buck_root. Stored in function attribute.
 def get_buck_root():
@@ -35,7 +42,9 @@ def get_absolute_buck_root():
             try:
                 with change_cwd(parent):
                     next = subprocess.run(
-                        ["buck2", "root"], stdout=subprocess.PIPE, stderr=subprocess.DEVNULL
+                        ["buck2", "root"],
+                        stdout=subprocess.PIPE,
+                        stderr=subprocess.DEVNULL,
                     )
 
                 next = next.stdout.decode("utf-8").strip()
@@ -56,7 +65,7 @@ def get_cell_root(cell: str):
     if not hasattr(get_cell_root, "cells"):
         cells = {}
         for line in exec_lines(["buck2", "audit", "cell"], quiet=True):
-            c, p = line.split(': ', 2)
+            c, p = line.split(": ", 2)
             cells[c] = p
 
         get_cell_root.cells = cells
@@ -78,17 +87,17 @@ def get_target_path(target):
     # cell//blah/blah:targ
 
     absolute = False
-    cell = ''
+    cell = ""
     path = target
-    if '//' in target:
-        cell, path = target.split('//', 2)
+    if "//" in target:
+        cell, path = target.split("//", 2)
         absolute = True
 
-    if path.endswith('...'):
+    if path.endswith("..."):
         path = path[:-3]
 
-    if ':' in path:
-        path, _ = target.rsplit(':', 2)
+    if ":" in path:
+        path, _ = path.rsplit(":", 2)
 
     root = get_buck_root()
 
@@ -111,17 +120,31 @@ def get_default_mode():
 
     return "@auto-dev"
 
+
 default_mode = get_default_mode()
 
-def get_target_auto_mode(target: str, flavor: str):
+
+def get_default_buck():
+    if os.getenv("DEFAULT_BUCK"):
+        return os.getenv("DEFAULT_BUCK")
+
+    return "buck2"
+
+
+default_buck = get_default_buck()
+
+
+def get_target_auto_data(target: str, flavor: str):
     auto_mode_file = get_target_path("fbcode//buck_auto_mode/data/buck_auto_mode.toml")
     modes = toml.load(auto_mode_file)
     target_path = get_target_path(target)
     absolute_buck_root = get_absolute_buck_root()
-    target_path = os.path.relpath(target_path, absolute_buck_root).replace("\\", "/") + '/'
+    target_path = (
+        os.path.relpath(target_path, absolute_buck_root).replace("\\", "/") + "/"
+    )
 
-    for project in modes['Project']:
-        for pattern in project['paths']:
+    for project in modes["Project"]:
+        for pattern in project["paths"]:
             if fnmatch(target_path, pattern):
                 platform_section = project.get(platform.system().lower(), None)
                 if platform_section:
@@ -133,11 +156,35 @@ def get_target_auto_mode(target: str, flavor: str):
                             else:
                                 chosen_mode = platform_section[f]
 
-                            # now we have to make the chosen mode relative to our local buck root:
-                            return "@//" + os.path.relpath(os.path.join(get_absolute_buck_root(), chosen_mode), get_buck_root())
+                            chosen_buck = project["build"]
+                            if chosen_buck == "fbcode-contbuild":
+                                chosen_buck = "buck2"
 
-                    return None
-    return None
+                            # now we have to make the chosen mode relative to our local buck root:
+                            return (
+                                chosen_buck,
+                                "@//"
+                                + os.path.relpath(
+                                    os.path.join(get_absolute_buck_root(), chosen_mode),
+                                    get_buck_root(),
+                                ),
+                            )
+
+                    return (None, None)
+    return (None, None)
+
+
+def get_target_auto_mode(target: str, flavor: str):
+    (_, mode) = get_target_auto_data(target, flavor)
+    return mode
+
+
+def get_target_auto_buck(target: str, flavor: str):
+    (buck_tool, _) = get_target_auto_data(target, flavor)
+    if buck_tool:
+        return buck_tool
+    else:
+        return default_buck
 
 
 vs_path = "c:\\Program Files (x86)\\Microsoft Visual Studio\\2019\\Professional\\Common7\\IDE\\devenv.exe"
@@ -154,9 +201,9 @@ def filter_mode(args):
     )
 
 
-def invoke_buck(args, report=True):
+def invoke_buck(tool, args, report=True):
     with temporary_filename() as report_file:
-        cmd = ["buck"] + args
+        cmd = [tool] + args
         if report:
             cmd.extend(["--build-report", report_file])
         print_command(cmd)
@@ -241,21 +288,25 @@ def find_runnable(target, modes, results):
     return result["args"], result["env"]
 
 
-def buck_run(modes, target, rest):
+def buck_run(tool, modes, target, rest):
     buck_rest, debug_rest = get_passthru_args(rest)
 
-    build_database = buck_build(modes, target, buck_rest)
+    build_database = buck_build(tool, modes, target, buck_rest)
     results = build_database["results"]
     target = prompt_target("choose run target: ", results)
     if results[target]["success"]:
         runnable, env = find_runnable(target, modes, results)
-        cmd = [os.path.join(get_absolute_buck_root(), runnable[0])] + runnable[1:] + debug_rest
+        cmd = (
+            [os.path.join(get_absolute_buck_root(), runnable[0])]
+            + runnable[1:]
+            + debug_rest
+        )
         print_command(cmd)
         return subprocess.call(cmd, env=env)
     return 1
 
 
-def buck_targets(modes, target, rest):
+def buck_targets(tool, modes, target, rest):
     cmd = ["buck2", "targets"] + modes + [target] + rest
     return sorted(exec_lines(cmd))
 
@@ -323,6 +374,7 @@ def run_windbg_debugger(binary, env, dbg_params, exe_params):
     print_command(cmd)
     return subprocess.Popen(cmd, env=env)
 
+
 def run_vscode_debugger(binary, env, dbg_params, exe_params):
     vscode_launch_template = """
     {{
@@ -360,13 +412,20 @@ def run_vscode_debugger(binary, env, dbg_params, exe_params):
     }}
     """
     with open(os.path.join(get_absolute_buck_root(), ".vscode/launch.json"), "w") as f:
+
         def reslash(str):
             return str.replace("\\", "/")
-        output = vscode_launch_template.format(path=reslash(binary), root=reslash(get_absolute_buck_root()), args = json.dumps(exe_params))
+
+        output = vscode_launch_template.format(
+            path=reslash(binary),
+            root=reslash(get_absolute_buck_root()),
+            args=json.dumps(exe_params),
+        )
         f.write(output)
 
-def save_buck_query(modes, query, output):
-    targets = buck_query(modes, query)
+
+def save_buck_query(tool, modes, query, output):
+    targets = buck_query(tool, modes, query)
     print(pretty_targets(targets))
     with open(output, "w") as f:
         for target in targets:
@@ -378,21 +437,26 @@ def save_buck_query(modes, query, output):
         return None
 
 
-def buck_build(modes, target, rest):
-    return invoke_buck(["build"] + modes + [target] + rest)
+def buck_build(tool, modes, target, rest):
+    return invoke_buck(tool, ["build"] + modes + [target] + rest)
 
 
-def buck_test(modes, target, rest):
-    return invoke_buck(["test"] + modes + [target] + rest, report=False)
+def buck_test(tool, modes, target, rest):
+    return invoke_buck(tool, ["test"] + modes + [target] + rest, report=False)
 
 
-def buck_targets(modes, target, rest):
-    cmd = ["buck2", "targets"] + modes + [target] + rest
+def buck_targets(tool, modes, target, rest):
+    cmd = [tool, "targets"] + modes + [target] + rest
     return sorted(exec_lines(cmd))
 
-def buck_debug(modes, target, rest):
+
+def buck_install(tool, modes, target, rest):
+    return invoke_buck(tool, ["install"] + modes + [target] + rest, report=False)
+
+
+def buck_debug(tool, modes, target, rest):
     buck_rest, debug_rest = get_passthru_args(rest)
-    build_database = buck_build(modes, target, buck_rest)
+    build_database = buck_build(tool, modes, target, buck_rest)
     results = build_database["results"]
     target = prompt_target("choose debug target: ", results)
     if results[target]["success"]:
@@ -423,71 +487,75 @@ def buck_query(modes, query, rest=[], quiet=False):
     return sorted(exec_lines(cmd, quiet=quiet))
 
 
-def targets(modes, query, rest=[]):
-    results = buck_targets(modes, query, rest)
+def targets(tool, modes, query, rest=[]):
+    results = buck_targets(tool, modes, query, rest)
     for t in pretty_targets(results):
         print(t)
 
 
-def query(modes, query, rest=[]):
-    results = buck_query(modes, query, rest)
+def query(tool, modes, query, rest=[]):
+    results = buck_query(tool, modes, query, rest)
     for t in results:
         print(t)
 
 
-def queryq(modes, query, rest=[]):
-    results = buck_query(modes, query, rest)
+def queryq(tool, modes, query, rest=[]):
+    results = buck_query(tool, modes, query, rest)
     for t in results:
         print(t)
 
 
-def buildq(modes, target, rest):
+def buildq(tool, modes, target, rest):
     with temporary_filename() as target_file:
-        save_buck_query(modes, target, target_file)
-        buck_build(modes, f"@{target_file}", rest)
+        save_buck_query(tool, modes, target, target_file)
+        buck_build(tool, modes, f"@{target_file}", rest)
 
 
-def runq(modes, target, rest):
+def runq(tool, modes, target, rest):
     with temporary_filename() as target_file:
-        save_buck_query(modes, target, target_file)
-        buck_run(modes, f"@{target_file}", rest)
+        save_buck_query(tool, modes, target, target_file)
+        buck_run(tool, modes, f"@{target_file}", rest)
 
 
-def testq(modes, target, rest):
+def testq(tool, modes, target, rest):
     with temporary_filename() as target_file:
-        save_buck_query(modes, target, target_file)
-        buck_test(modes, f"@{target_file}", rest)
+        save_buck_query(tool, modes, target, target_file)
+        buck_test(tool, modes, f"@{target_file}", rest)
 
 
-def debugq(modes, target, rest):
+def debugq(tool, modes, target, rest):
     with temporary_filename() as target_file:
-        save_buck_query(modes, target, target_file)
-        buck_debug(modes, f"@{target_file}", rest)
+        save_buck_query(tool, modes, target, target_file)
+        buck_debug(tool, modes, f"@{target_file}", rest)
 
 
-def targetsq(modes, target, rest):
-    targets = buck_query(modes, target, rest)
+def targetsq(tool, modes, target, rest):
+    targets = buck_query(tool, modes, target, rest)
     for t in targets:
         print(t)
+
 
 def resolve_modes(modes, target, rest):
     def resolve_mode(m):
         if m.startswith("@auto-"):
-            return get_target_auto_mode(target, m[len("@auto-"):])
+            return get_target_auto_mode(target, m[len("@auto-") :])
         else:
             return m
 
     return list([i for i in [resolve_mode(m) for m in modes] if i])
 
-def test_modes(modes, target, rest):
-    print(f'modes = {modes}')
-    print(f'target = {target}')
-    print(f'rest = {rest}')
-    print(f'target_path = {get_target_path(target)}')
+
+def test_modes(tool, modes, target, rest):
+    print(f"tool = {tool}")
+    print(f"modes = {modes}")
+    print(f"target = {target}")
+    print(f"rest = {rest}")
+    print(f"target_path = {get_target_path(target)}")
     print(f'target_mode = {get_target_auto_mode(target, "dbg")}')
-    print(f'current root = {get_buck_root()}')
-    print(f'abs root = {get_absolute_buck_root()}')
-    print(f'resolve = {resolve_modes(modes, target, rest)}')
+    print(f"current root = {get_buck_root()}")
+    print(f"abs root = {get_absolute_buck_root()}")
+    print(f"resolve = {resolve_modes(modes, target, rest)}")
+
 
 # Aliases - just replace anything in the command line that starts with # with this:
 aliases = {
@@ -498,6 +566,7 @@ aliases = {
 if __name__ == "__main__":
     commands = {
         "build": buck_build,
+        "install": buck_install,
         "run": buck_run,
         "test": buck_test,
         "debug": buck_debug,
@@ -534,7 +603,7 @@ if __name__ == "__main__":
         rest = rest[1:]
         # if no target with a colon has been specified, assume
         # the caller wants one from the current directory
-        if target.startswith("#") and target[1:]in aliases:
+        if target.startswith("#") and target[1:] in aliases:
             target = aliases[target[1:]]
         elif not ":" in target and not "..." in target and not command.endswith("q"):
             target = ":" + target
@@ -546,6 +615,7 @@ if __name__ == "__main__":
 
     # compute any auto-mode configuration
     modes = resolve_modes(modes, target, rest)
+    buck_tool = get_target_auto_buck(target, "dbg")  # any flavor
 
     # invoke the command
-    commands.get(command, lambda: "unknown command")(modes, target, rest)
+    commands.get(command, lambda: "unknown command")(buck_tool, modes, target, rest)

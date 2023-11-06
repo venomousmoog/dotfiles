@@ -74,7 +74,7 @@ if (Test-CommandExists "bat")
 }
 
 # additional tools and modules
-Import-Module z
+# Import-Module z
 Import-Module posh-git
 Import-Module posh-dotnet
 Import-Module posh-docker
