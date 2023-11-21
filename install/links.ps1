@@ -1,6 +1,4 @@
-
 $dotfiles = Join-Path $PSScriptRoot ..
-
 
 # configuration links mapping
 $links = @{
