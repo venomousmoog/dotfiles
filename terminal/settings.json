@@ -113,6 +113,14 @@
                 "startingDirectory": "%USERPROFILE%"
             },
             {
+                "commandline": "%OneDriveConsumer%\\tools\\mosh.cmd ddriver@our.ddriver.sb.facebook.com",
+                "guid": "{1afd1af9-54a9-4106-aba2-17d467e381d8}",
+                "hidden": false,
+                "icon": "ms-appx:///ProfileIcons/{61c54bbd-c2c6-5271-96e7-009a87ff44bf}.png",
+                "name": "devserver (mosh)",
+                "startingDirectory": "%USERPROFILE%"
+            },
+            {
                 "guid": "{16208362-94fc-5b1f-a491-5b2624d5ab56}",
                 "hidden": true,
                 "name": "Visual Studio Debug Console",

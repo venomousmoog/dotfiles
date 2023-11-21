@@ -1,128 +1,140 @@
 {
-    "workbench.colorTheme": "Default Light+",
-    "editor.tokenColorCustomizations": {
-        "textMateRules": [
-            {
-                "scope": "comment",
-                "settings": {
-                    "fontStyle": "bold"
-                }
-            }
-        ]
-    },
-    "workbench.colorCustomizations": {
-        "[Quiet Light]": {
-            "editor.background": "#FFFFFF",
-            "editor.lineHighlightBackground": "#F9F9F9"
+  "workbench.colorTheme": "Default Light+",
+  "editor.tokenColorCustomizations": {
+    "textMateRules": [
+      {
+        "scope": "comment",
+        "settings": {
+          "fontStyle": "bold"
         }
-    },
-    "cSpell.userWords": [
-        "arvr",
-        "BUGBUG",
-        "ddriver",
-        "ndarray",
-        "openai",
-        "pyright",
-        "todohighlight"
-    ],
-    "editor.fontLigatures": true,
-    "todohighlight.isEnable": true,
-    // FIXME, ddriver: this should only go to comment scopes, but it's global now.
-    "todohighlight.keywordsPattern": "(TODO|FIXME|DEBUG|HACK|BUGBUG)(, [a-zA-Z0-0]*)?:",
-    "todohighlight.defaultStyle": {
-        "color": "#9B5BA6",
-        "backgroundColor": "#FFF9A6",
-        "overviewRulerColor": "#ffab00",
-        "cursor": "pointer",
-        "border": "1px solid #eee",
-        "borderRadius": "2px"
-    },
-    "security.workspace.trust.untrustedFiles": "open",
-    "files.associations": {
-        "*.cedar": "python"
-    },
-    "errorLens.messageBackgroundMode": "none",
-    "vsicons.dontShowNewVersionMessage": true,
-    "omnisharp.useModernNet": false,
-    "errorLens.enabledDiagnosticLevels": [
-        "error",
-        "warning"
-    ],
-    "gitlens.plusFeatures.enabled": false,
-    "files.watcherExclude": {
-        "**/.bloop": true,
-        "**/.metals": true,
-        "**/.ammonite": true
-    },
-    "powershell.codeFormatting.autoCorrectAliases": true,
-    "powershell.codeFormatting.avoidSemicolonsAsLineTerminators": true,
-    "powershell.codeFormatting.newLineAfterCloseBrace": false,
-    "powershell.codeFormatting.trimWhitespaceAroundPipe": true,
-    "powershell.codeFormatting.useConstantStrings": true,
-    "powershell.codeFormatting.useCorrectCasing": true,
-    "powershell.integratedConsole.suppressStartupBanner": true,
-    "powershell.promptToUpdatePowerShell": false,
-    "powershell.integratedConsole.startInBackground": true,
-    "terminal.integrated.defaultProfile.windows": "Command Prompt",
-    "[cpp]": {
-        "editor.tabSize": 2
-    },
-    "[python]": {
-        "editor.tabSize": 4,
-        "editor.formatOnType": true
-    },
-    "[javascript]": {
-        "editor.tabSize": 2
-    },
-    "[csharp]": {
-        "editor.tabSize": 4
-    },
-    "editor.accessibilitySupport": "off",
-    "explorer.confirmDelete": false,
-    "python.autoComplete.extraPaths": [
-        "${workspaceFolder}\\cedar\\server\\.venv\\Lib\\site-packages",
-        "${workspaceFolder}\\..\\ResearcherPlatform\\sdk\\ctrl-r\\Python\\lib"
-    ],
-    "python.analysis.extraPaths": [
-        "${workspaceFolder}\\cedar\\server\\.venv\\Lib\\site-packages",
-        "${workspaceFolder}\\..\\ResearcherPlatform\\sdk\\ctrl-r\\Python\\lib"
-    ],
-    "errorLens.gutterIconsEnabled": true,
-    // -> --> != == === += -= /= *= ** *** <- <-- <-- ... .. <> <= >= ::  (a -> b) (A => B) 
-    "editor.fontFamily": "'JetBrainsMono NF', 'Courier New', monospace",
-    "editor.fontSize": 12,
-    "editor.lineHeight": 18,
-    "terminal.integrated.fontSize": 12,
-    "editor.minimap.enabled": true,
-    "editor.showFoldingControls": "always",
-    "workbench.panel.defaultLocation": "bottom",
-    "redhat.telemetry.enabled": true,
-    "powershell.integratedConsole.showOnStartup": false,
-    "go.toolsManagement.autoUpdate": true,
-    "haskell.serverEnvironment": {    
-        "GHCUP_INSTALL_BASE_PREFIX": "C:\\Users\\ddriver"
-    },
-    "haskell.serverExecutablePath": "C:\\Users\\ddriver\\ghcup\\bin\\haskell-language-server-wrapper-1.8.0.0.exe",
-    "haskell.formattingProvider": "stylish-haskell",
-    "haskell.ghcupExecutablePath": "C:\\Users\\ddriver\\ghcup\\bin\\ghcup.exe",
-    "haskell.manageHLS": "PATH",
-    "haskell.toolchain": {
-        "ghc": "9.4.2",
-        "cabal": "recommended",
-        "stack": "recommended",
-        "hls": "latest"
-    },
-    "markdown.styles": [
-        "https://use.fontawesome.com/releases/v5.7.1/css/all.css"
-    ],
-    "python.analysis.inlayHints.functionReturnTypes": true,
-    "python.analysis.inlayHints.variableTypes": false,
-    "FSharp.suggestGitignore": false,
-    "isort.showNotifications": "always",
-    "[json]": {
-        "editor.defaultFormatter": "esbenp.prettier-vscode"
-    },
-    "workbench.iconTheme": "material-icon-theme",
-    "metals.serverVersion": "0.11.10+118-2be84509-SNAPSHOT",
-    "editor.formatOnSave": true
+      }
+    ]
+  },
+  "workbench.colorCustomizations": {
+    "[Quiet Light]": {
+      "editor.background": "#FFFFFF",
+      "editor.lineHighlightBackground": "#F9F9F9",
+      // Overrides Theme Default Colors for InlayHints feature
+      "editorInlayHint.background": "#DDEEFF88",
+      "editorInlayHint.foreground": "#505050",
+      // Overrides Theme Parameter hints fg for InlayHints feature
+      //"editorInlayHint.parameterBackground": "#00001CCC",
+      //"editorInlayHint.parameterForeground": "#99FFBBCC",
+      // Overrides Theme Type hints fg for InlayHints feature
+      "editorInlayHint.typeBackground": "#DDEEFF88",
+      "editorInlayHint.typeForeground": "#505050"
+    }
+  },
+  "editor.inlayHints.fontSize": 10,
+  "cSpell.userWords": [
+    "arvr",
+    "BUGBUG",
+    "ddriver",
+    "ndarray",
+    "openai",
+    "pyright",
+    "todohighlight"
+  ],
+  "editor.fontLigatures": true,
+  "todohighlight.isEnable": true,
+  // FIXME, ddriver: this should only go to comment scopes, but it's global now.
+  "todohighlight.keywordsPattern": "(TODO|FIXME|DEBUG|HACK|BUGBUG)(, [a-zA-Z0-0]*)?:",
+  "todohighlight.defaultStyle": {
+    "color": "#9B5BA6",
+    "backgroundColor": "#FFF9A6",
+    "overviewRulerColor": "#ffab00",
+    "cursor": "pointer",
+    "border": "1px solid #eee",
+    "borderRadius": "2px"
+  },
+  "security.workspace.trust.untrustedFiles": "open",
+  "files.associations": {
+    "*.cedar": "python"
+  },
+  "errorLens.messageBackgroundMode": "none",
+  "vsicons.dontShowNewVersionMessage": true,
+  "omnisharp.useModernNet": false,
+  "errorLens.enabledDiagnosticLevels": ["error", "warning"],
+  "gitlens.plusFeatures.enabled": false,
+  "files.watcherExclude": {
+    "**/.bloop": true,
+    "**/.metals": true,
+    "**/.ammonite": true
+  },
+  "powershell.codeFormatting.autoCorrectAliases": true,
+  "powershell.codeFormatting.avoidSemicolonsAsLineTerminators": true,
+  "powershell.codeFormatting.newLineAfterCloseBrace": false,
+  "powershell.codeFormatting.trimWhitespaceAroundPipe": true,
+  "powershell.codeFormatting.useConstantStrings": true,
+  "powershell.codeFormatting.useCorrectCasing": true,
+  "powershell.integratedConsole.suppressStartupBanner": true,
+  "powershell.promptToUpdatePowerShell": false,
+  "powershell.integratedConsole.startInBackground": true,
+  "powershell.powerShellAdditionalExePaths": {
+    "Powershell Preview": "C:/Program Files/PowerShell/7-preview/pwsh-preview.exe"
+  },
+  "terminal.integrated.defaultProfile.windows": "Command Prompt",
+  "[cpp]": {
+    "editor.tabSize": 2
+  },
+  "[python]": {
+    "editor.tabSize": 4,
+    "editor.formatOnType": true
+  },
+  "[javascript]": {
+    "editor.tabSize": 2
+  },
+  "[csharp]": {
+    "editor.tabSize": 4
+  },
+  "editor.accessibilitySupport": "off",
+  "explorer.confirmDelete": false,
+  "python.autoComplete.extraPaths": [
+    "${workspaceFolder}\\cedar\\server\\.venv\\Lib\\site-packages",
+    "${workspaceFolder}\\..\\ResearcherPlatform\\sdk\\ctrl-r\\Python\\lib"
+  ],
+  "python.analysis.extraPaths": [
+    "${workspaceFolder}\\cedar\\server\\.venv\\Lib\\site-packages",
+    "${workspaceFolder}\\..\\ResearcherPlatform\\sdk\\ctrl-r\\Python\\lib"
+  ],
+  "errorLens.gutterIconsEnabled": true,
+  // -> --> != == === += -= /= *= ** *** <- <-- <-- ... .. <> <= >= ::  (a -> b) (A => B)
+  "editor.fontFamily": "'JetBrainsMono NF', 'Courier New', monospace",
+  "editor.fontSize": 12,
+  "editor.lineHeight": 18,
+  "terminal.integrated.fontSize": 11,
+  "editor.minimap.enabled": true,
+  "editor.showFoldingControls": "always",
+  "workbench.panel.defaultLocation": "bottom",
+  "redhat.telemetry.enabled": true,
+  "powershell.integratedConsole.showOnStartup": false,
+  "go.toolsManagement.autoUpdate": true,
+  "haskell.serverEnvironment": {
+    "GHCUP_INSTALL_BASE_PREFIX": "C:\\Users\\ddriver"
+  },
+  "haskell.serverExecutablePath": "C:\\Users\\ddriver\\ghcup\\bin\\haskell-language-server-wrapper-1.8.0.0.exe",
+  "haskell.formattingProvider": "stylish-haskell",
+  "haskell.ghcupExecutablePath": "C:\\Users\\ddriver\\ghcup\\bin\\ghcup.exe",
+  "haskell.manageHLS": "PATH",
+  "haskell.toolchain": {
+    "ghc": "9.4.2",
+    "cabal": "recommended",
+    "stack": "recommended",
+    "hls": "latest"
+  },
+  "markdown.styles": [
+    "https://use.fontawesome.com/releases/v5.7.1/css/all.css"
+  ],
+  "python.analysis.inlayHints.functionReturnTypes": true,
+  "python.analysis.inlayHints.variableTypes": false,
+  "FSharp.suggestGitignore": false,
+  "isort.showNotifications": "always",
+  "[json]": {
+    "editor.defaultFormatter": "vscode.json-language-features"
+  },
+  "workbench.iconTheme": "material-icon-theme",
+  "metals.serverVersion": "0.11.10+118-2be84509-SNAPSHOT",
+  "[jsonc]": {
+    "editor.defaultFormatter": "esbenp.prettier-vscode"
+  }
 }
