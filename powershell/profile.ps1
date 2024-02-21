@@ -2,6 +2,9 @@
 $scriptFile = $PSCommandPath
 $PSNativeCommandUseErrorActionPreference = $false
 
+# Encoding to deal with changes of PowerShell 7.4
+[Console]::OutputEncoding = [Text.Encoding]::UTF8
+
 while ($null -ne (Get-Item $scriptFile).LinkType) {
     $scriptFile = (Get-Item $scriptFile).LinkTarget
 }
