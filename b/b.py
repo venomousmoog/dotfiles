@@ -412,7 +412,6 @@ def run_vscode_debugger(binary, env, dbg_params, exe_params):
     }}
     """
     with open(os.path.join(get_absolute_buck_root(), ".vscode/launch.json"), "w") as f:
-
         def reslash(str):
             return str.replace("\\", "/")
 
