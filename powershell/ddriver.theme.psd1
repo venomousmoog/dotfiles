@@ -2,7 +2,7 @@
     Name  = 'ddriver'
     Types = @{
         Directories = @{
-            '' = 'AA00CC'
+            '' = 'ba5adb'
             symlink  = '7373ff'
             junction = '7373ff'
             WellKnown = @{

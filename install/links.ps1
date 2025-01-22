@@ -7,6 +7,7 @@ $links = @{
     "${env:APPDATA}/Code - Insiders/User/settings.json" = './vscode/settings.json'
     "${env:USERPROFILE}/.gitconfig" = './git/gitconfig'
     "${env:LOCALAPPDATA}/Packages/Microsoft.WindowsTerminalPreview_8wekyb3d8bbwe/LocalState/settings.json" = './terminal/settings.json'
+    "${env:APPDATA}\VS Code @ FB - Insiders\User\settings.json" = './vsc-meta/settings.json'
     "${env:APPDATA}\VS Code @ FB - Dev\User\settings.json" = './vsc-meta/settings.json'
 }
 
