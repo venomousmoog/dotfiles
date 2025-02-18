@@ -1,0 +1,54 @@
+{
+  "$schema": "https://raw.githubusercontent.com/JanDeDobbeleer/oh-my-posh/main/themes/schema.json",
+  "console_title_template": "{{.PWD}}{{if .Root}} - admin{{end}}",
+  "blocks": [
+    {
+      "alignment": "left",
+      "segments": [
+        {
+          "foreground": "#ffa600",
+          "properties": {
+            "style": "mixed"
+          },
+          "style": "plain",
+          "template": "{{ .Path }} ",
+          "type": "path",
+          "postfix": ""
+        },
+        {
+          "foreground": "#007ACC",
+          "style": "plain",
+          "template": "\ue602",
+          "type": "text",
+          "prefix": ""
+        }
+      ],
+      "type": "prompt"
+    },
+    {
+      "alignment": "right",
+      "segments": [
+        {
+          "foreground": "#00e61f",
+          "style": "plain",
+          "properties": {
+            "display_mode": "environment",
+            "fetch_virtual_env": true,
+            "fetch_version": false
+          },
+          "template": "\uE235{{ if .Env.VIRTUAL_ENV }}{{ (substr 3 1000 (osDir .Env.VIRTUAL_ENV)) }} {{ end }}",
+          "type": "python"
+        },
+        {
+          "foreground": "#00d6fc",
+          "style": "plain",
+          "template": "{{ replace .Env.USERNAME \"~\" .HEAD }} ",
+          "type": "git"
+        }
+      ],
+      "type": "rprompt"
+    }
+  ],
+  "final_space": true,
+  "version": 2
+}

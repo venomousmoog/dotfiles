@@ -17,7 +17,10 @@ $links = @{
 Set-Location $dotfiles
 
 foreach ($k in $links.Keys) {
-    Remove-Item $k
+    if (Test-Path $k) {
+        Remove-Item $k
+    }
     $target = Resolve-Path $links[$k]
-    New-Item -ItemType SymbolicLink -Path $k -Target $target
+    Write-Host "Linking $k to $target"
+    New-Item -Force -ItemType SymbolicLink -Path $k -Target $target
 }
