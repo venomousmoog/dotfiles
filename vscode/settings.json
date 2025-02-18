@@ -1,5 +1,5 @@
 {
-  "workbench.colorTheme": "Default Light+",
+  "workbench.colorTheme": "Default Light Modern",
   "editor.tokenColorCustomizations": {
     "textMateRules": [
       {
@@ -126,7 +126,7 @@
     "https://use.fontawesome.com/releases/v5.7.1/css/all.css"
   ],
   "python.analysis.inlayHints.functionReturnTypes": true,
-  "python.analysis.inlayHints.variableTypes": false,
+  "python.analysis.inlayHints.variableTypes": true,
   "FSharp.suggestGitignore": false,
   "isort.showNotifications": "always",
   "[json]": {
@@ -136,5 +136,12 @@
   "metals.serverVersion": "0.11.10+118-2be84509-SNAPSHOT",
   "[jsonc]": {
     "editor.defaultFormatter": "esbenp.prettier-vscode"
-  }
+  },
+  "editor.formatOnSave": true,
+  "remote.SSH.showLoginTerminal": true,
+  "remote.SSH.remotePlatform": {
+    "sea104-smcrtx-node01.thefacebook.com": "linux"
+  },
+  "terminal.integrated.tabs.enabled": false,
+  "python.analysis.inlayHints.callArgumentNames": "partial"
 }

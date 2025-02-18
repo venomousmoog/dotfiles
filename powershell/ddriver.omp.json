@@ -3,52 +3,58 @@
   "console_title_template": "{{.PWD}}{{if .Root}} - admin{{end}}",
   "blocks": [
     {
+      "type": "prompt",
       "alignment": "left",
       "segments": [
         {
-          "foreground": "#ffa600",
           "properties": {
+            "cache_duration": "none",
             "style": "mixed"
           },
-          "style": "plain",
           "template": "{{ .Path }} ",
+          "foreground": "#ffa600",
           "type": "path",
-          "postfix": ""
+          "style": "plain"
         },
         {
-          "foreground": "#007ACC",
-          "style": "plain",
+          "properties": {
+            "cache_duration": "none"
+          },
           "template": "\ue602",
+          "foreground": "#007ACC",
           "type": "text",
-          "prefix": ""
+          "style": "plain"
         }
-      ],
-      "type": "prompt"
+      ]
     },
     {
+      "type": "rprompt",
       "alignment": "right",
       "segments": [
         {
-          "foreground": "#00e61f",
-          "style": "plain",
           "properties": {
+            "cache_duration": "none",
             "display_mode": "environment",
-            "fetch_virtual_env": true,
-            "fetch_version": false
+            "fetch_version": false,
+            "fetch_virtual_env": true
           },
-          "template": "\uE235{{ if .Env.VIRTUAL_ENV }}{{ (substr 3 1000 (osDir .Env.VIRTUAL_ENV)) }} {{ end }}",
-          "type": "python"
+          "template": "\ue235{{ if .Env.VIRTUAL_ENV }}{{ (substr 3 1000 (osDir .Env.VIRTUAL_ENV)) }} {{ end }}",
+          "foreground": "#00e61f",
+          "type": "python",
+          "style": "plain"
         },
         {
-          "foreground": "#00d6fc",
-          "style": "plain",
+          "properties": {
+            "cache_duration": "none"
+          },
           "template": "{{ replace .Env.USERNAME \"~\" .HEAD }} ",
-          "type": "git"
+          "foreground": "#00d6fc",
+          "type": "git",
+          "style": "plain"
         }
-      ],
-      "type": "rprompt"
+      ]
     }
   ],
-  "final_space": true,
-  "version": 2
+  "version": 3,
+  "final_space": true
 }
