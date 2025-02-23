@@ -213,9 +213,19 @@ if (Get-Command podman -ErrorAction SilentlyContinue) {
     podman completion powershell | Out-String | Invoke-Expression
 }
 
-Get-ChildItem (Join-Path -Path $scriptPath -ChildPath 'completions') -File | 
-    Where-Object { $_.Name -notin $excludeList } | 
+$completion_paths = @((Join-Path -Path $scriptPath -ChildPath 'completions'), '/usr/share/bash-completion')
+
+$completion_paths |
+    Where-Object { Test-Path $_ } | 
     ForEach-Object {
-        Write-Host "adding completion for $($_.Name), $($_.FullName)"
-        Register-BashArgumentCompleter $_.Name $_.FullName -Verbose
-    }
+        $completion_files = Get-ChildItem (Join-Path -Path $scriptPath -ChildPath 'completions') -File
+        $completion_files |
+            Where-Object { $_.Name -notin $native_completions } |
+            ForEach-Object {
+                Register-BashArgumentCompleter $_.Name $_.FullName
+            }
+    
+            $native_completions += $completion_files
+        }
+
+

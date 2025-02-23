@@ -42,8 +42,8 @@ function Format-Listing {
 }
 
 function Format-Location {
-    Get-Location @args | Format-List
+    Get-Location @args | Format-Table -HideTableHeaders
 }
 
 Set-Alias -Name ls -Value Format-Listing -Option AllScope
-Set-Alias -Name pwd -Value Format-Location  -Option AllScope 
+Set-Alias -Name pwd -Value Format-Location  -Option AllScope
