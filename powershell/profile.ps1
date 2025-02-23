@@ -82,7 +82,9 @@ Import-Module posh-vs
 Import-Module PSfzf
 Import-Module "$scriptPath\Modules\PSBashCompletions"
 Import-Module "$scriptPath\listing.ps1"
-Import-Module "$scriptPath\disk-usage.ps1"
+if ($IsWindows) {
+    Import-Module "$scriptPath\disk-usage.ps1"
+}
 Import-Module "$scriptPath\posh-buck.ps1"
 
 function Find-CommandLocation([String]$command) {
