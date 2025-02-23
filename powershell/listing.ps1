@@ -6,14 +6,13 @@ function Format-Listing {
     $l = $false
     $aa = $false
     $r = $false
-    if (($args.Length -gt 0) -and ($args[0].StartsWith("-"))) {
-        $a = $args[0].Contains("a")
-        $l = $args[0].Contains("l")
-        $aa = $args[0].Contains("A")
-        $r = $args[0].Contains("R") -or $args[0].Contains("r")
+    if (($args.Length -gt 0) -and ($args[0].StartsWith('-'))) {
+        $a = $args[0].Contains('a')
+        $l = $args[0].Contains('l')
+        $aa = $args[0].Contains('A')
+        $r = $args[0].Contains('R') -or $args[0].Contains('r')
         $rest = $args[1..$args.Length]
-    }
-    else {
+    } else {
         $rest = $args
     }
 
@@ -21,14 +20,13 @@ function Format-Listing {
     $extra = @{}
     $format = @{}
     if ($r) {
-        $extra += @{Recurse = $true}
-        $format = @{View = "ListingChildren"}
-    }
-    else {
-        $format = @{View = "ListingChildrenUngrouped"}
+        $extra += @{Recurse = $true }
+        $format = @{View = 'ListingChildren' }
+    } else {
+        $format = @{View = 'ListingChildrenUngrouped' }
     }
     if ($aa) {
-        $extra += @{Attributes = "Hidden, !Hidden"}
+        $extra += @{Attributes = 'Hidden, !Hidden' }
     }
     $files = Get-ChildItem @extra @rest
 
@@ -42,4 +40,10 @@ function Format-Listing {
         $files | Format-Wide -AutoSize @format
     }
 }
+
+function Format-Location {
+    Get-Location @args | Format-List
+}
+
 Set-Alias -Name ls -Value Format-Listing -Option AllScope
+Set-Alias -Name pwd -Value Format-Location  -Option AllScope 

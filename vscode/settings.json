@@ -143,5 +143,11 @@
     "sea104-smcrtx-node01.thefacebook.com": "linux"
   },
   "terminal.integrated.tabs.enabled": false,
-  "python.analysis.inlayHints.callArgumentNames": "partial"
+  "python.analysis.inlayHints.callArgumentNames": "partial",
+  "workbench.editor.enablePreview": false,
+  "python.languageServer": "Pylance",
+  "python.analysis.languageServerMode": "full",
+  "python.analysis.autoFormatStrings": true,
+  "python.analysis.typeCheckingMode": "basic",
+  "files.simpleDialog.enable": true
 }
