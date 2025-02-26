@@ -126,7 +126,7 @@
     "https://use.fontawesome.com/releases/v5.7.1/css/all.css"
   ],
   "python.analysis.inlayHints.functionReturnTypes": true,
-  "python.analysis.inlayHints.variableTypes": false,
+  "python.analysis.inlayHints.variableTypes": true,
   "FSharp.suggestGitignore": false,
   "isort.showNotifications": "always",
   "[json]": {
@@ -137,8 +137,17 @@
   "[jsonc]": {
     "editor.defaultFormatter": "esbenp.prettier-vscode"
   },
+  "editor.formatOnSave": true,
   "remote.SSH.showLoginTerminal": true,
   "remote.SSH.remotePlatform": {
     "sea104-smcrtx-node01.thefacebook.com": "linux"
   },
+  "terminal.integrated.tabs.enabled": false,
+  "python.analysis.inlayHints.callArgumentNames": "partial",
+  "workbench.editor.enablePreview": false,
+  "python.languageServer": "Pylance",
+  "python.analysis.languageServerMode": "full",
+  "python.analysis.autoFormatStrings": true,
+  "python.analysis.typeCheckingMode": "basic",
+  "files.simpleDialog.enable": true
 }

@@ -9,13 +9,12 @@ while ($null -ne (Get-Item $scriptFile).LinkType) {
     $scriptFile = (Get-Item $scriptFile).LinkTarget
 }
 $scriptPath = Split-Path $scriptFile
-Write-Host "profile from $scriptFile"
+Write-Output "profile from $scriptFile"
 
 # helper to figure out what commands might be installed
-Function Test-CommandExists
-{
+Function Test-CommandExists {
     Param ($command)
-    try { if (Get-Command $command -ErrorAction "stop") { RETURN $true } }
+    try { if (Get-Command $command -ErrorAction 'stop') { RETURN $true } }
     Catch { RETURN $false }
 }
 
@@ -24,13 +23,13 @@ $env:PSModulePath += [System.IO.Path]::PathSeparator + "$($scriptPath)/Modules"
 
 # platform paths:
 if ($IsWindows) {
-    $platformName = "Win32NT"
+    $platformName = 'Win32NT'
 }
 if ($IsLinux) {
-    $platformName = "Unix"
+    $platformName = 'Unix'
 }
 if ($IsMacOS) {
-    $platformName = "MacOS"
+    $platformName = 'MacOS'
 }
 
 # add tools to path:
@@ -47,7 +46,7 @@ if ($IsMacOS) {
 }
 
 # disable python virtual environment prompt support (we get this from oh-my-posh)
-$env:VIRTUAL_ENV_DISABLE_PROMPT=1
+$env:VIRTUAL_ENV_DISABLE_PROMPT = 1
 
 # oh-my-posh prompt
 oh-my-posh init pwsh --config "$scriptPath/ddriver.omp.json" | Invoke-Expression
@@ -58,8 +57,7 @@ Add-TerminalIconsColorTheme "$scriptPath/ddriver.theme.psd1"
 Set-TerminalIconsTheme -ColorTheme ddriver
 
 # helper to figure out what commands might be installed
-Function Test-CommandExists
-{
+Function Test-CommandExists {
     Param ($command)
     $oldPreference = $ErrorActionPreference
     $ErrorActionPreference = ‘stop’
@@ -69,10 +67,9 @@ Function Test-CommandExists
 }
 
 # configure bat styles and point less to it
-if (Test-CommandExists "bat")
-{
-    $env:BAT_THEME="zenburn"
-    $env:BAT_STYLE="grid,numbers"
+if (Test-CommandExists 'bat') {
+    $env:BAT_THEME = 'zenburn'
+    $env:BAT_STYLE = 'grid,numbers'
     Set-Alias -Name less -Value bat -Option AllScope
 }
 
@@ -83,8 +80,11 @@ Import-Module posh-dotnet
 Import-Module posh-docker
 Import-Module posh-vs
 Import-Module PSfzf
+Import-Module "$scriptPath\Modules\PSBashCompletions"
 Import-Module "$scriptPath\listing.ps1"
-Import-Module "$scriptPath\disk-usage.ps1"
+if ($IsWindows) {
+    Import-Module "$scriptPath\disk-usage.ps1"
+}
 Import-Module "$scriptPath\posh-buck.ps1"
 
 function Find-CommandLocation([String]$command) {
@@ -128,7 +128,7 @@ $ExecutionContext.InvokeCommand.CommandNotFoundAction = {
     param($Name, [System.Management.Automation.CommandLookupEventArgs]$CommandLookupArgs)
 
     $Trimmed = $Name
-    if ($Name.StartsWith("get-")) {
+    if ($Name.StartsWith('get-')) {
         $Trimmed = $Name.Substring(4)
     }
 
@@ -142,7 +142,7 @@ $ExecutionContext.InvokeCommand.CommandNotFoundAction = {
     }
 }
 
-if (-Not (Get-Command "sudo" -ErrorAction Ignore)) {
+if (-Not (Get-Command 'sudo' -ErrorAction Ignore)) {
     function sudo {
         [CmdletBinding()]
         Param
@@ -162,33 +162,31 @@ Set-PSReadLineOption -EditMode Windows
 # alias winmerge to windiff because I can never remember these are
 function windiff { winmergeu -r -u -e @args }
 
-function Set-VirtualEnvironment($dir = (Get-Location))
-{
+function Set-VirtualEnvironment($dir = (Get-Location)) {
     $item = [System.IO.DirectoryInfo](Get-Item $dir)
 
     while ($item) {
-        if (Test-Path -Path ($item.FullName + "/.venv")) {
-            Write-Host "using environment $($item.FullName + "/.venv")"
-            $path = ($item.FullName + "/.venv/Scripts/Activate.ps1")
-            . $path -Prompt ($item.Parent.BaseName + "/" + $item.BaseName)
+        if (Test-Path -Path ($item.FullName + '/.venv')) {
+            Write-Host "using environment $($item.FullName + '/.venv')"
+            $path = ($item.FullName + '/.venv/Scripts/Activate.ps1')
+            . $path -Prompt ($item.Parent.BaseName + '/' + $item.BaseName)
             return
         }
         $item = $item.Parent
     }
 }
-Set-Alias -Name venv -value Set-VirtualEnvironment -Option AllScope
+Set-Alias -Name venv -Value Set-VirtualEnvironment -Option AllScope
 
 # links
-function ln
-{
+function ln {
     Param
     (
         [parameter(mandatory = $true, position = 0)]
-        [ValidateScript( { if (-Not (Test-Path -Path $_ ) ) { throw "path not found" } else { $true } })]
+        [ValidateScript( { if (-Not (Test-Path -Path $_ ) ) { throw 'path not found' } else { $true } })]
         [System.IO.FileInfo]$File,
 
         [parameter(position = 1)]
-        [System.IO.FileInfo]$Link = ".",
+        [System.IO.FileInfo]$Link = '.',
 
         [switch]$s
     )
@@ -199,8 +197,40 @@ function ln
 
     if ($s) {
         New-Item -ItemType SymbolicLink -Path $Link -Target $File
-    }
-    else {
+    } else {
         New-Item -ItemType HardLink -Path $Link -Target $File
     }
 }
+
+# completions
+
+# if we want native completions:
+if (Get-Command docker -ErrorAction SilentlyContinue) {
+    docker completion powershell | Out-String | Invoke-Expression
+}
+if (Get-Command kubectl -ErrorAction SilentlyContinue) {
+    kubectl completion powershell | Out-String | Invoke-Expression
+}
+if (Get-Command podman -ErrorAction SilentlyContinue) {
+    podman completion powershell | Out-String | Invoke-Expression
+}
+
+# exclusions tracks commands we've already found
+$exclusions = @('docker', 'kubectl', 'podman')
+# $exclusions = @()
+$inclusions = @('docker', 'kubectl', 'git', 'hg', 'podman')
+
+$completion_paths = @((Join-Path -Path $scriptPath -ChildPath 'completions'), '/usr/share/bash-completion/completions')
+
+$completion_paths |
+    Where-Object { Test-Path $_ } |
+    ForEach-Object {
+        $completion_files = Get-ChildItem $_ -File
+        $completion_files |
+            Where-Object { $_.Name -notin $exclusions } |
+            Where-Object { $_.Name -in $inclusions } |
+            ForEach-Object {
+                Register-BashArgumentCompleter $_.Name $_.FullName
+                $exclusions += @($_)
+            }
+        }
