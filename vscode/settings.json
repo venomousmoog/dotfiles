@@ -136,5 +136,9 @@
   "metals.serverVersion": "0.11.10+118-2be84509-SNAPSHOT",
   "[jsonc]": {
     "editor.defaultFormatter": "esbenp.prettier-vscode"
-  }
+  },
+  "remote.SSH.showLoginTerminal": true,
+  "remote.SSH.remotePlatform": {
+    "sea104-smcrtx-node01.thefacebook.com": "linux"
+  },
 }
