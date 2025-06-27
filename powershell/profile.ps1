@@ -39,6 +39,8 @@ if ($IsWindows) {
     $env:PATH += [System.IO.Path]::PathSeparator + ${Env:ProgramFiles(x86)} + '\Windows Kits\10\Debuggers\x64\'
     $env:PATH += [System.IO.Path]::PathSeparator + "$env:LOCALAPPDATA\Programs\WinMerge"
     $env:PATH += [System.IO.Path]::PathSeparator + "$env:LOCALAPPDATA\Android\sdk\platform-tools\"
+    $env:PATH += [System.IO.Path]::PathSeparator + "$env:OneDriveConsumer\tools\platform-tools\"
+    $env:PATH += [System.IO.Path]::PathSeparator + "$env:OneDriveConsumer\tools\"
 }
 if ($IsMacOS) {
     $(~/homebrew/bin/brew shellenv) | Invoke-Expression
