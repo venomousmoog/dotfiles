@@ -39,6 +39,8 @@ if ($IsWindows) {
     $env:PATH += [System.IO.Path]::PathSeparator + ${Env:ProgramFiles(x86)} + '\Windows Kits\10\Debuggers\x64\'
     $env:PATH += [System.IO.Path]::PathSeparator + "$env:LOCALAPPDATA\Programs\WinMerge"
     $env:PATH += [System.IO.Path]::PathSeparator + "$env:LOCALAPPDATA\Android\sdk\platform-tools\"
+    $env:PATH += [System.IO.Path]::PathSeparator + "$env:OneDriveConsumer\tools\platform-tools\"
+    $env:PATH += [System.IO.Path]::PathSeparator + "$env:OneDriveConsumer\tools\"
 }
 if ($IsMacOS) {
     $(~/homebrew/bin/brew shellenv) | Invoke-Expression
@@ -82,7 +84,9 @@ Import-Module posh-vs
 Import-Module PSfzf
 Import-Module "$scriptPath\Modules\PSBashCompletions"
 Import-Module "$scriptPath\listing.ps1"
-Import-Module "$scriptPath\disk-usage.ps1"
+if ($IsWindows) {
+    Import-Module "$scriptPath\disk-usage.ps1"
+}
 Import-Module "$scriptPath\posh-buck.ps1"
 
 function Find-CommandLocation([String]$command) {
@@ -201,8 +205,8 @@ function ln {
 }
 
 # completions
-$native_completions = @('docker', 'kubectl')
 
+# if we want native completions:
 if (Get-Command docker -ErrorAction SilentlyContinue) {
     docker completion powershell | Out-String | Invoke-Expression
 }
@@ -213,19 +217,22 @@ if (Get-Command podman -ErrorAction SilentlyContinue) {
     podman completion powershell | Out-String | Invoke-Expression
 }
 
-$completion_paths = @((Join-Path -Path $scriptPath -ChildPath 'completions'), '/usr/share/bash-completion')
+# exclusions tracks commands we've already found
+$exclusions = @('docker', 'kubectl', 'podman')
+# $exclusions = @()
+$inclusions = @('docker', 'kubectl', 'git', 'hg', 'podman')
+
+$completion_paths = @((Join-Path -Path $scriptPath -ChildPath 'completions'), '/usr/share/bash-completion/completions')
 
 $completion_paths |
-Where-Object { Test-Path $_ } | 
+Where-Object { Test-Path $_ } |
 ForEach-Object {
-    $completion_files = Get-ChildItem (Join-Path -Path $scriptPath -ChildPath 'completions') -File
+    $completion_files = Get-ChildItem $_ -File
     $completion_files |
-    Where-Object { $_.Name -notin $native_completions } |
+    Where-Object { $_.Name -notin $exclusions } |
+    Where-Object { $_.Name -in $inclusions } |
     ForEach-Object {
         Register-BashArgumentCompleter $_.Name $_.FullName
+        $exclusions += @($_)
     }
-    
-    $native_completions += $completion_files
 }
-
-

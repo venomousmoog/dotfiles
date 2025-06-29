@@ -110,7 +110,7 @@
                 "source": "Windows.Terminal.Azure"
             },
             {
-                "commandline": "pwsh.exe -NoLogo",
+                "commandline": "pwsh-preview.cmd -NoLogo",
                 "guid": "{574e775e-4f2a-5b96-ac1e-a2962a402336}",
                 "hidden": false,
                 "name": "PowerShell",
@@ -163,6 +163,36 @@
                 "icon": "ms-appx:///ProfileIcons/{61c54bbd-c2c6-5271-96e7-009a87ff44bf}.png",
                 "name": "router",
                 "startingDirectory": "%USERPROFILE%"
+            },
+            {
+                "guid": "{fbe5a851-1da3-52eb-a693-9404557d7824}",
+                "hidden": false,
+                "name": "Developer Command Prompt for VS 2022",
+                "source": "Windows.Terminal.VisualStudio"
+            },
+            {
+                "guid": "{10b202de-3ba6-56a9-a721-fe85fe8f23b9}",
+                "hidden": false,
+                "name": "Developer PowerShell for VS 2022",
+                "source": "Windows.Terminal.VisualStudio"
+            },
+            {
+                "guid": "{2ece5bfe-50ed-5f3a-ab87-5cd4baafed2b}",
+                "hidden": false,
+                "name": "Git Bash",
+                "source": "Git"
+            },
+            {
+                "guid": "{919e1ce9-dbec-5eaa-b084-6671b3a1a619}",
+                "hidden": false,
+                "name": "Developer Command Prompt for VS 2022",
+                "source": "Windows.Terminal.VisualStudio"
+            },
+            {
+                "guid": "{e25f680c-a69a-5f73-9bcf-2aee67c93d52}",
+                "hidden": false,
+                "name": "Developer PowerShell for VS 2022",
+                "source": "Windows.Terminal.VisualStudio"
             }
         ]
     },
