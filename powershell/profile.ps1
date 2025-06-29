@@ -12,10 +12,10 @@ $scriptPath = Split-Path $scriptFile
 Write-Output "profile from $scriptFile"
 
 # helper to figure out what commands might be installed
-Function Test-CommandExists {
-    Param ($command)
-    try { if (Get-Command $command -ErrorAction 'stop') { RETURN $true } }
-    Catch { RETURN $false }
+function Test-CommandExists {
+    param ($command)
+    try { if (Get-Command $command -ErrorAction 'stop') { return $true } }
+    catch { return $false }
 }
 
 # add a roaming modules path
@@ -57,13 +57,13 @@ Add-TerminalIconsColorTheme "$scriptPath/ddriver.theme.psd1"
 Set-TerminalIconsTheme -ColorTheme ddriver
 
 # helper to figure out what commands might be installed
-Function Test-CommandExists {
-    Param ($command)
+function Test-CommandExists {
+    param ($command)
     $oldPreference = $ErrorActionPreference
     $ErrorActionPreference = ‘stop’
-    try { if (Get-Command $command) { RETURN $true } }
-    Catch { RETURN $false }
-    Finally { $ErrorActionPreference = $oldPreference }
+    try { if (Get-Command $command) { return $true } }
+    catch { return $false }
+    finally { $ErrorActionPreference = $oldPreference }
 }
 
 # configure bat styles and point less to it
@@ -74,7 +74,7 @@ if (Test-CommandExists 'bat') {
 }
 
 # additional tools and modules
-Import-Module z
+# Import-Module z
 Import-Module posh-git
 Import-Module posh-dotnet
 Import-Module posh-docker
@@ -119,7 +119,7 @@ if (Test-Path alias:where) {
 Set-Alias -Name where -Value Get-CommandLocation -Option AllScope
 Set-Alias -Name which -Value Get-CommandLocation -Option AllScope
 
-Set-PSReadlineKeyHandler -Key Tab -Function MenuComplete
+Set-PSReadLineKeyHandler -Key Tab -Function MenuComplete
 
 # Add a helper to shorten 'missing command' messages
 $ExecutionContext.InvokeCommand.CommandNotFoundAction = {
@@ -140,10 +140,10 @@ $ExecutionContext.InvokeCommand.CommandNotFoundAction = {
     }
 }
 
-if (-Not (Get-Command 'sudo' -ErrorAction Ignore)) {
+if (-not (Get-Command 'sudo' -ErrorAction Ignore)) {
     function sudo {
         [CmdletBinding()]
-        Param
+        param
         (
             [parameter(mandatory = $true, position = 0)][string]$Command,
             [parameter(mandatory = $false, position = 1, ValueFromRemainingArguments = $true)]$Remaining
@@ -152,7 +152,7 @@ if (-Not (Get-Command 'sudo' -ErrorAction Ignore)) {
     }
 }
 
-if (-Not (Test-Path env:USERNAME)) {
+if (-not (Test-Path env:USERNAME)) {
     $env:USERNAME = $env:USER
 }
 Set-PSReadLineOption -EditMode Windows
@@ -177,10 +177,10 @@ Set-Alias -Name venv -Value Set-VirtualEnvironment -Option AllScope
 
 # links
 function ln {
-    Param
+    param
     (
         [parameter(mandatory = $true, position = 0)]
-        [ValidateScript( { if (-Not (Test-Path -Path $_ ) ) { throw 'path not found' } else { $true } })]
+        [ValidateScript( { if (-not (Test-Path -Path $_ ) ) { throw 'path not found' } else { $true } })]
         [System.IO.FileInfo]$File,
 
         [parameter(position = 1)]
@@ -216,16 +216,16 @@ if (Get-Command podman -ErrorAction SilentlyContinue) {
 $completion_paths = @((Join-Path -Path $scriptPath -ChildPath 'completions'), '/usr/share/bash-completion')
 
 $completion_paths |
-    Where-Object { Test-Path $_ } | 
+Where-Object { Test-Path $_ } | 
+ForEach-Object {
+    $completion_files = Get-ChildItem (Join-Path -Path $scriptPath -ChildPath 'completions') -File
+    $completion_files |
+    Where-Object { $_.Name -notin $native_completions } |
     ForEach-Object {
-        $completion_files = Get-ChildItem (Join-Path -Path $scriptPath -ChildPath 'completions') -File
-        $completion_files |
-            Where-Object { $_.Name -notin $native_completions } |
-            ForEach-Object {
-                Register-BashArgumentCompleter $_.Name $_.FullName
-            }
+        Register-BashArgumentCompleter $_.Name $_.FullName
+    }
     
-            $native_completions += $completion_files
-        }
+    $native_completions += $completion_files
+}
 
 

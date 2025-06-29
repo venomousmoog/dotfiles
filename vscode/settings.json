@@ -79,7 +79,9 @@
   },
   "[python]": {
     "editor.tabSize": 4,
-    "editor.formatOnType": true
+    "editor.formatOnType": true,
+    "editor.defaultFormatter": "ms-python.black-formatter",
+    "editor.formatOnSave": true
   },
   "[javascript]": {
     "editor.tabSize": 2
@@ -142,6 +144,7 @@
   "remote.SSH.remotePlatform": {
     "sea104-smcrtx-node01.thefacebook.com": "linux"
   },
+  "remote.SSH.localServerDownload": "always",
   "terminal.integrated.tabs.enabled": false,
   "python.analysis.inlayHints.callArgumentNames": "partial",
   "workbench.editor.enablePreview": false,
@@ -149,5 +152,9 @@
   "python.analysis.languageServerMode": "full",
   "python.analysis.autoFormatStrings": true,
   "python.analysis.typeCheckingMode": "basic",
-  "files.simpleDialog.enable": true
+  "files.simpleDialog.enable": true,
+  "scm.diffDecorationsIgnoreTrimWhitespace": "true",
+  "diffEditor.ignoreTrimWhitespace": false,
+  "diffEditor.codeLens": true,
+  "python.defaultInterpreterPath": "c:\\Users\\ddriver\\src\\playground\\.venv\\Scripts\\python.exe"
 }
