@@ -204,6 +204,20 @@ function ln {
     }
 }
 
+function pwto {
+    param(
+        [Parameter(ValueFromRemainingArguments=$true)]
+        [string[]]$Command
+    )
+
+    # $Command += ' 2>&1'
+    Write-Host $Command
+
+    # $commandString = ($Command -join ' ') + " 2>&1"
+    & @Command | Tee-Object -Variable displayOutput
+    $displayOutput | pastry --title "$commandString"
+}
+
 # completions
 
 # if we want native completions:
@@ -219,8 +233,7 @@ if (Get-Command podman -ErrorAction SilentlyContinue) {
 
 # exclusions tracks commands we've already found
 $exclusions = @('docker', 'kubectl', 'podman')
-# $exclusions = @()
-$inclusions = @('docker', 'kubectl', 'git', 'hg', 'podman')
+$inclusions = @('docker', 'kubectl', 'podman', 'git', 'hg', 'podman', 'buck2', 'buck', 'wget')
 
 $completion_paths = @((Join-Path -Path $scriptPath -ChildPath 'completions'), '/usr/share/bash-completion/completions')
 
@@ -232,7 +245,43 @@ ForEach-Object {
     Where-Object { $_.Name -notin $exclusions } |
     Where-Object { $_.Name -in $inclusions } |
     ForEach-Object {
-        Register-BashArgumentCompleter $_.Name $_.FullName
-        $exclusions += @($_)
+        $completion_files = Get-ChildItem $_ -File
+        $completion_files |
+            Where-Object { $_.Name -notin $exclusions } |
+            Where-Object { $_.Name -in $inclusions } |
+            ForEach-Object {
+                Register-BashArgumentCompleter $_.Name $_.FullName
+                $exclusions += @($_)
+            }
+        }
+}
+
+Register-BashArgumentCompleter hg /etc/bash_completion.d/mercurial.sh
+Register-BashArgumentCompleter jf /etc/bash_completion.d/jf
+# Register-BashArgumentCompleter buck2 /etc/bash_completion.d/buck-fbsource.bash
+
+
+function Get-ReversedHgSl {
+    if ($MyInvocation.PipelinePosition -eq $MyInvocation.PipelineLength) {
+        $output = & hg sl --color=always @Args
+    } else {
+        $output = & hg sl @Args
+    }
+
+    $lines = $output -split "`n"
+    [Array]::Reverse($lines)
+    $lines = $lines | ForEach-Object { $_ -replace '╯', '╮' }
+    $lines = $lines | ForEach-Object { $_ -replace '╭', '╰' }
+    $lines
+}
+
+Remove-Item alias:sl -Force
+Set-Alias -Name sl -Value Get-ReversedHgSl -Option AllScope
+
+
+$grep_path = (Get-Command grep).Source
+function grep {
+    process {
+        $input | & $grep_path --color=auto @Args
     }
 }

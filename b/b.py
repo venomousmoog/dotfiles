@@ -306,11 +306,6 @@ def buck_run(tool, modes, target, rest):
     return 1
 
 
-def buck_targets(tool, modes, target, rest):
-    cmd = ["buck2", "targets"] + modes + [target] + rest
-    return sorted(exec_lines(cmd))
-
-
 def run_devserver_debugger(binary, env, dbg_params, exe_params):
     # running commands (or debugging them) on a devserver is a bit of tricky business.  See
     # both the description of commands in arvr/tools/build_defs/oxx.bzl around _oxx_runner and _loader,
