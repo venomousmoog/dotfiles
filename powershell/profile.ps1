@@ -77,7 +77,7 @@ if (Test-CommandExists 'bat') {
 }
 
 # additional tools and modules
-# Import-Module z
+Import-Module z
 Import-Module posh-git
 Import-Module posh-dotnet
 Import-Module posh-docker
@@ -180,6 +180,19 @@ function Set-VirtualEnvironment($dir = (Get-Location)) {
 }
 Set-Alias -Name venv -Value Set-VirtualEnvironment -Option AllScope
 
+# Update VSCode environment variables from tmux
+function Update-TmuxEnvironment {
+    if ($env:TMUX) {
+        $tmuxEnv = tmux show-environment | Where-Object { $_ -match '^(VSCODE_IPC_HOOK_CLI|VSCODE_GIT_IPC_HANDLE|VSCODE_GIT_ASKPASS_NODE|VSCODE_GIT_ASKPASS_MAIN)=' }
+        foreach ($line in $tmuxEnv) {
+            if ($line -match '^([^=]+)=(.*)$') {
+                Set-Item -Path "env:$($matches[1])" -Value $matches[2]
+            }
+        }
+    }
+}
+Set-Alias -Name ue -Value Update-TmuxEnvironment -Option AllScope
+
 # links
 function ln {
     param
@@ -255,7 +268,7 @@ ForEach-Object {
                 $exclusions += @($_)
             }
         }
-}
+    }
 
 Register-BashArgumentCompleter hg /etc/bash_completion.d/mercurial.sh
 Register-BashArgumentCompleter jf /etc/bash_completion.d/jf
@@ -285,4 +298,49 @@ function grep {
     process {
         $input | & $grep_path --color=auto @Args
     }
+}
+
+function Debug-CoreDump {
+    param(
+        [Parameter(Mandatory=$true, Position=0)]
+        [string]$CoreDumpId
+    )
+
+    # Create a temporary directory and navigate to it
+    $tempDir = New-Item -ItemType Directory -Path (Join-Path ($null -ne ${env:TEMP} ? $env:TEMP : '/tmp') ([System.IO.Path]::GetRandomFileName()))
+    Push-Location $tempDir.FullName
+    Write-Host "Working directory: $($tempDir.FullName)"
+
+    try {
+        # Download coredump
+        Write-Host "Downloading coredump $CoreDumpId..."
+        & coredumps get -c coredumps_default.$CoreDumpId ./$CoreDumpId
+
+        if (-not (Test-Path "./$CoreDumpId")) {
+            Write-Error "Failed to download coredump $CoreDumpId"
+            return
+        }
+
+        # Launch lldb with symbol server and auto-load-debuginfo
+        Write-Host "Launching lldb with symbol server and auto-load-debuginfo..."
+        & lldb -c $CoreDumpId -O symsrv -o auto-load-debuginfo
+    }
+    finally {
+        # Return to original directory
+        Pop-Location
+        Write-Host "Temporary directory: $($tempDir.FullName)"
+        Write-Host "You may want to clean up the temporary directory when done."
+    }
+}
+
+$env:EDITOR="code-fb --wait"
+
+
+$originalPromptFunction = $function:prompt
+function prompt {
+    # Run your tmux update script silently
+    Update-TmuxEnvironment -ErrorAction SilentlyContinue
+
+    # Call the original prompt function
+    & $originalPromptFunction
 }

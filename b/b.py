@@ -601,6 +601,9 @@ if __name__ == "__main__":
             target = aliases[target[1:]]
         elif not ":" in target and not "..." in target and not command.endswith("q"):
             target = ":" + target
+        
+        while target.startswith("./"):
+            target = target[2:]
     else:
         if command == "query" or command.endswith("q"):
             target = queries.default_targets
