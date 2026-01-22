@@ -51,3 +51,5 @@
 
 [credential "https://ghe.oculus-rep.com"]
 	provider = github
+[credential "helperselector"]
+	selected = wincred
