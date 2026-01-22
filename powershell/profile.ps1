@@ -34,6 +34,7 @@ if ($IsMacOS) {
 
 # add tools to path:
 $env:PATH += [System.IO.Path]::PathSeparator + "$($scriptPath)/Tools/$($platformName)"
+$env:PATH += [System.IO.Path]::PathSeparator + "$($env:OneDriveConsumer)/Tools"
 
 if ($IsWindows) {
     $env:PATH += [System.IO.Path]::PathSeparator + ${Env:ProgramFiles(x86)} + '\Windows Kits\10\Debuggers\x64\'

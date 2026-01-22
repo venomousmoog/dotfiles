@@ -1,11 +1,9 @@
 {
     "$help": "https://aka.ms/terminal-documentation",
     "$schema": "https://aka.ms/terminal-profiles-schema-preview",
-    "actions": 
-    [
+    "actions": [
         {
-            "command": 
-            {
+            "command": {
                 "action": "splitPane",
                 "split": "auto",
                 "splitMode": "duplicate"
@@ -21,15 +19,13 @@
             "id": "User.paste"
         },
         {
-            "command": 
-            {
+            "command": {
                 "action": "newTab"
             },
             "id": "User.newTab.5DEADB41"
         },
         {
-            "command": 
-            {
+            "command": {
                 "action": "copy",
                 "singleLine": false
             },
@@ -40,8 +36,7 @@
     "copyFormatting": "all",
     "copyOnSelect": false,
     "defaultProfile": "{574e775e-4f2a-5b96-ac1e-a2962a402336}",
-    "keybindings": 
-    [
+    "keybindings": [
         {
             "id": "User.paste",
             "keys": "ctrl+v"
@@ -67,30 +62,40 @@
             "keys": "ctrl+shift+t"
         }
     ],
-    "newTabMenu": 
-    [
+    "newTabMenu": [
         {
             "type": "remainingProfiles"
+        },
+        {
+            "allowEmpty": false,
+            "entries": [
+                {
+                    "commandline": null,
+                    "name": null,
+                    "source": "Windows.Terminal.SSH",
+                    "type": "matchProfiles"
+                }
+            ],
+            "icon": "\ue969",
+            "inline": "auto",
+            "name": "SSH",
+            "type": "folder"
         }
     ],
-    "profiles": 
-    {
-        "defaults": 
-        {
+    "profiles": {
+        "defaults": {
+            "colorScheme": "Campbell",
             "cursorShape": "vintage",
             "experimental.retroTerminalEffect": false,
-            "font": 
-            {
+            "font": {
                 "face": "JetBrainsMono NFM",
-                "features": 
-                {
+                "features": {
                     "calt": 1
                 },
                 "size": 9
             }
         },
-        "list": 
-        [
+        "list": [
             {
                 "guid": "{61c54bbd-c2c6-5271-96e7-009a87ff44bf}",
                 "hidden": false,
@@ -177,6 +182,25 @@
                 "source": "Windows.Terminal.VisualStudio"
             },
             {
+                "guid": "{07b52e3e-de2c-5db4-bd2d-ba144ed6c273}",
+                "hidden": true,
+                "name": "Ubuntu-20.04",
+                "source": "Windows.Terminal.Wsl"
+            },
+            {
+                "guid": "{5657a5b7-005b-50d1-8f72-daa9160bd0bf}",
+                "hidden": false,
+                "name": "Ubuntu",
+                "source": "Microsoft.WSL"
+            },
+            {
+                "guid": "{4dd1e689-b517-5f39-947d-78e8a8bdf958}",
+                "hidden": false,
+                "icon": null,
+                "name": "Ubuntu 20.04.6 LTS",
+                "source": "CanonicalGroupLimited.Ubuntu20.04LTS_79rhkp1fndgsc"
+            },
+            {
                 "guid": "{2ece5bfe-50ed-5f3a-ab87-5cd4baafed2b}",
                 "hidden": false,
                 "name": "Git Bash",
@@ -193,35 +217,23 @@
                 "hidden": false,
                 "name": "Developer PowerShell for VS 2022",
                 "source": "Windows.Terminal.VisualStudio"
+            },
+            {
+                "guid": "{22a7769f-8dd7-5f4a-a5fd-24aa0aeb1d34}",
+                "hidden": false,
+                "name": "SSH - sea104-smcrtx-node01.thefacebook.com",
+                "source": "Windows.Terminal.SSH"
+            },
+            {
+                "guid": "{dcda0a71-ce18-5128-ac2f-6d7a1f9291fd}",
+                "hidden": false,
+                "name": "SSH - sea104-smcrtx-node02.thefacebook.com",
+                "source": "Windows.Terminal.SSH"
             }
         ]
     },
     "rendering.software": true,
-    "schemes": 
-    [
-        {
-            "background": "#300A24",
-            "black": "#171421",
-            "blue": "#0037DA",
-            "brightBlack": "#767676",
-            "brightBlue": "#08458F",
-            "brightCyan": "#2C9FB3",
-            "brightGreen": "#26A269",
-            "brightPurple": "#A347BA",
-            "brightRed": "#C01C28",
-            "brightWhite": "#F2F2F2",
-            "brightYellow": "#A2734C",
-            "cursorColor": "#FFFFFF",
-            "cyan": "#3A96DD",
-            "foreground": "#FFFFFF",
-            "green": "#26A269",
-            "name": "Ubuntu-20.04-ColorScheme",
-            "purple": "#881798",
-            "red": "#C21A23",
-            "selectionBackground": "#FFFFFF",
-            "white": "#CCCCCC",
-            "yellow": "#A2734C"
-        },
+    "schemes": [
         {
             "background": "#300A24",
             "black": "#171421",
