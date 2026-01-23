@@ -11,7 +11,7 @@
 
 	safecrlf = false
 [credential]
-	helper = store
+	helper = !\"C:/tools/fb.gitbash/mingw64/libexec/git-core/git-credential-wincred.exe\"
 [http]
 	postBuffer = 157286400
 [credential "https://ghe.oculus-rep.com"]
