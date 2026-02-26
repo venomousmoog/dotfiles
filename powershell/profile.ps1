@@ -180,7 +180,7 @@ function Set-VirtualEnvironment($dir = (Get-Location)) {
 }
 Set-Alias -Name venv -Value Set-VirtualEnvironment -Option AllScope
 
-# Update VSCode environment variables from tmux
+# Update VSCode environment variables from tmux and set window title
 function Update-TmuxEnvironment {
     if ($env:TMUX) {
         $tmuxEnv = tmux show-environment | Where-Object { $_ -match '^(VSCODE_IPC_HOOK_CLI|VSCODE_GIT_IPC_HANDLE|VSCODE_GIT_ASKPASS_NODE|VSCODE_GIT_ASKPASS_MAIN)=' }
@@ -189,6 +189,8 @@ function Update-TmuxEnvironment {
                 Set-Item -Path "env:$($matches[1])" -Value $matches[2]
             }
         }
+        $title = (oh-my-posh print primary --config "$scriptPath/tmux-title.omp.json" --plain --shell pwsh --pwd $PWD).Trim()
+        tmux rename-window -t $env:TMUX_PANE "$title"
     }
 }
 Set-Alias -Name ue -Value Update-TmuxEnvironment -Option AllScope
@@ -343,4 +345,13 @@ function prompt {
 
     # Call the original prompt function
     & $originalPromptFunction
+}
+
+# Alias 'cat' to 'bat' when available, falling back to system cat otherwise
+if (Get-Command bat -ErrorAction SilentlyContinue) {
+    Set-Alias -Name cat -Value bat -Option AllScope
+} elseif (-not (Get-Alias -Name cat -ErrorAction SilentlyContinue)) {
+    # Ensure 'cat' still resolves on platforms where it's not a builtin alias
+    $sysCat = Get-Command cat -ErrorAction SilentlyContinue
+    if ($sysCat) { Set-Alias -Name cat -Value $sysCat.Source -Option AllScope }
 }

@@ -1,0 +1,329 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <style>
+    * { box-sizing: border-box; }
+    body {
+      font-family: 'Google Sans', Arial, sans-serif;
+      margin: 0;
+      padding: 16px;
+      color: #202124;
+    }
+    label {
+      font-size: 13px;
+      font-weight: 500;
+      display: block;
+      margin-bottom: 6px;
+    }
+    textarea {
+      width: 100%;
+      height: calc(100vh - 200px);
+      min-height: 150px;
+      padding: 10px;
+      font-family: 'Roboto Mono', 'Courier New', monospace;
+      font-size: 12px;
+      border: 1px solid #dadce0;
+      border-radius: 4px;
+      resize: vertical;
+      line-height: 1.5;
+    }
+    textarea:focus {
+      outline: none;
+      border-color: #1a73e8;
+      box-shadow: 0 0 0 2px rgba(26, 115, 232, 0.2);
+    }
+    .options {
+      margin-top: 10px;
+    }
+    .options label {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      font-weight: 400;
+      cursor: pointer;
+    }
+    .actions {
+      margin-top: 12px;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+    button {
+      padding: 8px 24px;
+      background: #1a73e8;
+      color: #fff;
+      border: none;
+      border-radius: 4px;
+      font-size: 14px;
+      font-weight: 500;
+      cursor: pointer;
+    }
+    button:hover { background: #1557b0; }
+    button:disabled { background: #94c4f7; cursor: default; }
+    #status {
+      font-size: 13px;
+      color: #5f6368;
+    }
+    #status.error { color: #d93025; }
+    #status.success { color: #188038; }
+    .help {
+      margin-top: 16px;
+      font-size: 11px;
+      color: #80868b;
+      line-height: 1.6;
+    }
+    .help code {
+      background: #f1f3f4;
+      padding: 1px 4px;
+      border-radius: 3px;
+      font-family: 'Roboto Mono', monospace;
+      font-size: 11px;
+    }
+
+    /* Settings panel */
+    .settings-toggle {
+      margin-top: 14px;
+      font-size: 12px;
+      color: #1a73e8;
+      cursor: pointer;
+      user-select: none;
+    }
+    .settings-toggle:hover { text-decoration: underline; }
+    .settings-panel {
+      display: none;
+      margin-top: 8px;
+      padding: 10px;
+      border: 1px solid #dadce0;
+      border-radius: 4px;
+      background: #fafafa;
+    }
+    .settings-panel.open { display: block; }
+    .settings-panel h4 {
+      margin: 0 0 8px 0;
+      font-size: 12px;
+      font-weight: 600;
+      color: #5f6368;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+    .settings-panel h4:not(:first-child) {
+      margin-top: 12px;
+    }
+    .setting-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 6px;
+    }
+    .setting-row label {
+      font-size: 12px;
+      font-weight: 400;
+      margin: 0;
+      flex: 1;
+    }
+    .setting-row input[type="color"] {
+      width: 32px;
+      height: 24px;
+      border: 1px solid #dadce0;
+      border-radius: 3px;
+      padding: 1px;
+      cursor: pointer;
+      background: none;
+    }
+    .setting-row input[type="text"] {
+      width: 140px;
+      padding: 3px 6px;
+      font-size: 12px;
+      border: 1px solid #dadce0;
+      border-radius: 3px;
+      font-family: 'Roboto Mono', monospace;
+    }
+    .settings-actions {
+      margin-top: 10px;
+      display: flex;
+      gap: 8px;
+    }
+    .settings-actions button {
+      padding: 4px 12px;
+      font-size: 12px;
+      background: #f1f3f4;
+      color: #202124;
+      border: 1px solid #dadce0;
+    }
+    .settings-actions button:hover { background: #e8eaed; }
+  </style>
+</head>
+<body>
+  <label for="md">Paste markdown below:</label>
+  <textarea id="md" placeholder="# Title&#10;## Heading 1&#10;&#10;Some **bold**, *italic*, and `inline code`.&#10;&#10;```python&#10;def hello():&#10;    print('world')&#10;```&#10;&#10;| Col A | Col B |&#10;|-------|-------|&#10;| 1     | 2     |"></textarea>
+  <div class="options">
+    <label><input type="checkbox" id="extraBreaks"> Add blank line between paragraphs</label>
+  </div>
+  <div class="actions">
+    <button id="btn" onclick="doInsert()">Insert</button>
+    <span id="status"></span>
+  </div>
+
+  <div class="settings-toggle" onclick="toggleSettings()">&triangleright; Style settings</div>
+  <div class="settings-panel" id="settingsPanel">
+    <h4>Code</h4>
+    <div class="setting-row">
+      <label>Font</label>
+      <input type="text" id="s_CODE_FONT" value="JetBrains Mono">
+    </div>
+    <div class="setting-row">
+      <label>Block background</label>
+      <input type="color" id="s_CODE_BG" value="#fdf7ee">
+    </div>
+    <div class="setting-row">
+      <label>Block text</label>
+      <input type="color" id="s_CODE_FG" value="#333333">
+    </div>
+    <div class="setting-row">
+      <label>Inline text</label>
+      <input type="color" id="s_INLINE_CODE_FG" value="#006400">
+    </div>
+
+    <h4>Tables</h4>
+    <div class="setting-row">
+      <label>Header background</label>
+      <input type="color" id="s_TABLE_HEADER_BG" value="#2C3E50">
+    </div>
+    <div class="setting-row">
+      <label>Header text</label>
+      <input type="color" id="s_TABLE_HEADER_FG" value="#eeeeee">
+    </div>
+    <div class="setting-row">
+      <label>Alt row background</label>
+      <input type="color" id="s_TABLE_ALT_ROW_BG" value="#fffaf5">
+    </div>
+    <div class="setting-row">
+      <label>Border</label>
+      <input type="color" id="s_TABLE_BORDER" value="#000000">
+    </div>
+
+    <h4>Blockquotes</h4>
+    <div class="setting-row">
+      <label>Background</label>
+      <input type="color" id="s_BLOCKQUOTE_BG" value="#f7f7f7">
+    </div>
+    <div class="setting-row">
+      <label>Border</label>
+      <input type="color" id="s_BLOCKQUOTE_BORDER" value="#008080">
+    </div>
+
+    <div class="settings-actions">
+      <button onclick="resetSettings()">Reset defaults</button>
+    </div>
+  </div>
+
+  <div class="help">
+    Heading levels: <code>#</code> &rarr; Title,
+    <code>##</code> &rarr; H1,
+    <code>###</code> &rarr; H2, &hellip;
+  </div>
+
+  <script>
+    var DEFAULTS = {
+      CODE_FONT: 'JetBrains Mono',
+      CODE_BG: '#fdf7ee',
+      CODE_FG: '#333333',
+      INLINE_CODE_FG: '#006400',
+      TABLE_HEADER_BG: '#2C3E50',
+      TABLE_HEADER_FG: '#eeeeee',
+      TABLE_ALT_ROW_BG: '#fffaf5',
+      TABLE_BORDER: '#000000',
+      BLOCKQUOTE_BG: '#f7f7f7',
+      BLOCKQUOTE_BORDER: '#008080'
+    };
+
+    var STYLE_KEYS = Object.keys(DEFAULTS);
+
+    // Load saved settings on startup
+    function loadSettings() {
+      try {
+        var saved = localStorage.getItem('mdPasteStyles');
+        if (saved) {
+          var obj = JSON.parse(saved);
+          STYLE_KEYS.forEach(function(key) {
+            if (obj[key]) {
+              var el = document.getElementById('s_' + key);
+              if (el) el.value = obj[key];
+            }
+          });
+        }
+      } catch(e) {}
+    }
+
+    function saveSettings() {
+      var obj = {};
+      STYLE_KEYS.forEach(function(key) {
+        var el = document.getElementById('s_' + key);
+        if (el) obj[key] = el.value;
+      });
+      try { localStorage.setItem('mdPasteStyles', JSON.stringify(obj)); } catch(e) {}
+    }
+
+    function getStyles() {
+      var obj = {};
+      STYLE_KEYS.forEach(function(key) {
+        var el = document.getElementById('s_' + key);
+        if (el) obj[key] = el.value;
+      });
+      return obj;
+    }
+
+    function resetSettings() {
+      STYLE_KEYS.forEach(function(key) {
+        var el = document.getElementById('s_' + key);
+        if (el) el.value = DEFAULTS[key];
+      });
+      saveSettings();
+    }
+
+    function toggleSettings() {
+      var panel = document.getElementById('settingsPanel');
+      var toggle = document.querySelector('.settings-toggle');
+      panel.classList.toggle('open');
+      toggle.innerHTML = panel.classList.contains('open')
+        ? '&triangledown; Style settings'
+        : '&triangleright; Style settings';
+    }
+
+    // Save whenever a setting changes
+    document.addEventListener('change', function(e) {
+      if (e.target.id && e.target.id.startsWith('s_')) saveSettings();
+    });
+
+    function doInsert() {
+      var md = document.getElementById('md').value;
+      if (!md.trim()) return;
+      var btn = document.getElementById('btn');
+      var status = document.getElementById('status');
+      btn.disabled = true;
+      status.textContent = 'Inserting\u2026';
+      status.className = '';
+
+      var options = {
+        extraLineBreaks: document.getElementById('extraBreaks').checked,
+        styles: getStyles()
+      };
+
+      google.script.run
+        .withSuccessHandler(function() {
+          status.textContent = 'Done!';
+          status.className = 'success';
+          btn.disabled = false;
+        })
+        .withFailureHandler(function(err) {
+          status.textContent = 'Error: ' + err.message;
+          status.className = 'error';
+          btn.disabled = false;
+        })
+        .insertMarkdown(md, options);
+    }
+
+    loadSettings();
+  </script>
+</body>
+</html>
