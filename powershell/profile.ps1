@@ -47,6 +47,9 @@ if ($IsMacOS) {
     $(~/homebrew/bin/brew shellenv) | Invoke-Expression
     $env:PATH += [System.IO.Path]::PathSeparator + '/Users/ddriver/Library/Android/sdk/platform-tools/'
 }
+if ($IsLinux) {
+    $env:PATH += [System.IO.Path]::PathSeparator + '/packages/adb/latest/'
+}
 
 # disable python virtual environment prompt support (we get this from oh-my-posh)
 $env:VIRTUAL_ENV_DISABLE_PROMPT = 1
