@@ -1,0 +1,87 @@
+{
+  "name": "tmux-statusline",
+  "version": "1.2.0-local",
+  "description": "Local fork of tmux-statusline with PID-scoped scanning and deduplicated hooks. Shows Claude agent state icons (working/waiting/idle) in tmux status bar.",
+  "author": {
+    "name": "Michael Percy",
+    "email": "mpercy@meta.com"
+  },
+  "homepage": "https://www.internalfb.com/code/fbsource/fbcode/claude-templates/components/plugins/tmux-statusline/README.md",
+  "commands": ["./commands/setup.md"],
+  "keywords": [
+    "tmux",
+    "statusline",
+    "multi-agent",
+    "productivity",
+    "monitoring"
+  ],
+  "hooks": {
+    "SessionStart": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "${CLAUDE_PLUGIN_ROOT}/hooks/session-start.sh",
+            "timeout": 2
+          }
+        ]
+      }
+    ],
+    "PreToolUse": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "${CLAUDE_PLUGIN_ROOT}/hooks/pre-tool-use.sh",
+            "timeout": 2
+          }
+        ]
+      }
+    ],
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "${CLAUDE_PLUGIN_ROOT}/hooks/stop.sh",
+            "timeout": 2
+          }
+        ]
+      }
+    ],
+    "UserPromptSubmit": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "${CLAUDE_PLUGIN_ROOT}/hooks/user-prompt-submit.sh",
+            "timeout": 2
+          }
+        ]
+      }
+    ],
+    "SessionEnd": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "${CLAUDE_PLUGIN_ROOT}/hooks/session-end.sh",
+            "timeout": 2
+          }
+        ]
+      }
+    ],
+    "Notification": [
+      {
+        "matcher": "permission_prompt|elicitation_dialog|idle_prompt",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "${CLAUDE_PLUGIN_ROOT}/hooks/notification.sh",
+            "timeout": 2
+          }
+        ]
+      }
+    ]
+  }
+}

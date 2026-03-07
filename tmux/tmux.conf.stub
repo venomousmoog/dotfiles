@@ -1,0 +1,18 @@
+# tmux.conf -- Dotfiles bootstrap
+# Sources real config from dotfiles, cloning the repo if missing
+#
+# NEW MACHINE SETUP: copy this file to ~/.tmux.conf
+#   cp ~/src/dotfiles/tmux/tmux.conf.stub ~/.tmux.conf
+# This file must NOT be a symlink -- it must exist before dotfiles are cloned
+
+# Bootstrap dotfiles
+if-shell '[ ! -d "$HOME/src/dotfiles" ]' {
+    run-shell '"$HOME/.config/dotfiles-bootstrap.sh"'
+}
+
+# Create ~/.tmux/plugins symlink if missing
+if-shell '[ ! -e "$HOME/.tmux/plugins" ]' {
+    run-shell 'mkdir -p "$HOME/.tmux" && ln -s "$HOME/src/dotfiles/tmux/plugins" "$HOME/.tmux/plugins"'
+}
+
+source-file ~/src/dotfiles/tmux/tmux.conf

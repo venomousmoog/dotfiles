@@ -6,15 +6,13 @@
 #   cp ~/src/dotfiles/nushell/config.nu ~/.config/nushell/config.nu
 # These files must NOT be symlinks -- env.nu must exist before dotfiles are cloned
 
-# Bootstrap: clone dotfiles repo if missing
-let dotfiles_dir = ($env.HOME | path join "src" "dotfiles")
-if not ($dotfiles_dir | path exists) {
-    let src_dir = ($env.HOME | path join "src")
-    if not ($src_dir | path exists) {
-        mkdir $src_dir
+# Bootstrap: ensure dotfiles repo is cloned
+let bootstrap = ($env.HOME | path join ".config" "dotfiles-bootstrap.sh")
+if ($bootstrap | path exists) {
+    let dotfiles_dir = ($env.HOME | path join "src" "dotfiles")
+    if not ($dotfiles_dir | path exists) {
+        ^bash $bootstrap
     }
-    print "Cloning dotfiles repository..."
-    ^git clone https://github.com/venomousmoog/dotfiles $dotfiles_dir
 }
 
 $env.DOTFILES_PATH = ($env.HOME | path join "src" "dotfiles")
