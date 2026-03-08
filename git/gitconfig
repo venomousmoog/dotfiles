@@ -3,64 +3,30 @@
 	smudge = git-lfs smudge -- %f
 	process = git-lfs filter-process
 	required = true
+
 [user]
 	name = venomousmoog
 	email = venomousmoog@users.noreply.github.com
+
 [core]
 	autocrlf = true
-
 	safecrlf = false
 
 [http]
 	postBuffer = 157286400
-[credential "https://ghe.oculus-rep.com"]
-	provider = github
 
 [mergetool]
     prompt = false
     keepBackup = false
     keepTemporaries = false
 
-[merge]
-    tool = winmerge
-
-[mergetool "winmerge"]
-    name = WinMerge
-    trustExitCode = true
-    cmd = "WinMergeU.exe" -u -e -dl \"Local\" -dr \"Remote\" $LOCAL $REMOTE $MERGED
-
-[diff]
-    tool = winmerge
-
-[difftool "winmerge"]
-    name = WinMerge
-    trustExitCode = true
-    cmd = "WinMergeU.exe" -r -u -e $LOCAL $REMOTE
-
 [push]
 	autoSetupRemote = true
-
-[safe]
-	directory = C:/open/xpack
 
 [alias]
 	co = checkout
 	br = branch
 	st = status
 
-[credential]
-	helper = store
-
-[credential "https://ghe.oculus-rep.com"]
-	provider = github
-
-[http "https://git.internal.tfbnw.net"]
-	sslCert = /var/facebook/credentials/ddriver/x509/ddriver.pem
-	sslKey = /var/facebook/credentials/ddriver/x509/ddriver.pem
-
-[http "https://mononoke-git-lfs.internal.tfbnw.net"]
-	sslCert = /var/facebook/credentials/ddriver/x509/ddriver.pem
-	sslKey = /var/facebook/credentials/ddriver/x509/ddriver.pem
-
-[http "https://manifold.c2p.facebook.net"]
-	sslCert = /var/facebook/credentials/ddriver/x509/ddriver.pem
+[include]
+    path = ~/.gitconfig-os
