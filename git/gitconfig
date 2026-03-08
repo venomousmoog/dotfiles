@@ -10,8 +10,7 @@
 	autocrlf = true
 
 	safecrlf = false
-[credential]
-	helper = !\"C:/tools/fb.gitbash/mingw64/libexec/git-core/git-credential-wincred.exe\"
+
 [http]
 	postBuffer = 157286400
 [credential "https://ghe.oculus-rep.com"]
@@ -49,18 +48,19 @@
 	br = branch
 	st = status
 
+[credential]
+	helper = store
+
 [credential "https://ghe.oculus-rep.com"]
 	provider = github
-
-[credential "helperselector"]
-	selected = wincred
 
 [http "https://git.internal.tfbnw.net"]
 	sslCert = /var/facebook/credentials/ddriver/x509/ddriver.pem
 	sslKey = /var/facebook/credentials/ddriver/x509/ddriver.pem
+
 [http "https://mononoke-git-lfs.internal.tfbnw.net"]
 	sslCert = /var/facebook/credentials/ddriver/x509/ddriver.pem
 	sslKey = /var/facebook/credentials/ddriver/x509/ddriver.pem
+
 [http "https://manifold.c2p.facebook.net"]
 	sslCert = /var/facebook/credentials/ddriver/x509/ddriver.pem
-
