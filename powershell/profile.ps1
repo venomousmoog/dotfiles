@@ -338,7 +338,11 @@ function Debug-CoreDump {
     }
 }
 
-$env:EDITOR="code-fb --wait"
+if ($env:TERM_PROGRAM -eq 'vscode') {
+    $env:EDITOR="code-fb --wait"
+} else {
+    $env:EDITOR = 'nano'
+}
 
 
 $originalPromptFunction = $function:prompt
