@@ -30,3 +30,11 @@
 
 [include]
     path = ~/.gitconfig.os
+[http "https://git.internal.tfbnw.net"]
+	sslCert = /var/facebook/credentials/ddriver/x509/ddriver.pem
+	sslKey = /var/facebook/credentials/ddriver/x509/ddriver.pem
+[http "https://mononoke-git-lfs.internal.tfbnw.net"]
+	sslCert = /var/facebook/credentials/ddriver/x509/ddriver.pem
+	sslKey = /var/facebook/credentials/ddriver/x509/ddriver.pem
+[http "https://manifold.c2p.facebook.net"]
+	sslCert = /var/facebook/credentials/ddriver/x509/ddriver.pem
