@@ -1,0 +1,21 @@
+# PowerShell profile bootstrap -- Dotfiles
+# Sources real profile from dotfiles, cloning the repo if missing
+#
+# NEW MACHINE SETUP: copy this file to your PowerShell profile location
+#   Linux/macOS: ~/.config/powershell/Microsoft.PowerShell_profile.ps1
+#   Windows:     ~/Documents/PowerShell/Microsoft.PowerShell_profile.ps1
+
+$profilePath = Join-Path $HOME 'src/dotfiles/powershell/profile.ps1'
+
+if (-not (Test-Path $profilePath)) {
+    $dotfilesDir = Join-Path $HOME 'src/dotfiles'
+    $srcDir = Join-Path $HOME 'src'
+    if (-not (Test-Path $srcDir)) {
+        New-Item -ItemType Directory -Path $srcDir -Force | Out-Null
+    }
+    git clone https://github.com/venomousmoog/dotfiles $dotfilesDir
+}
+
+if (Test-Path $profilePath) {
+    . $profilePath
+}
