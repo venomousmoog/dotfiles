@@ -12,7 +12,6 @@
 [http "https://manifold.c2p.facebook.net"]
 	sslCert = /var/facebook/credentials/ddriver/x509/ddriver.pem
 
-# ~/.gitconfig-linux
 [http "https://github.com"]
     proxy = https://fwdproxy:8082
     proxySSLCert = /var/facebook/credentials/ddriver/x509/ddriver.pem
