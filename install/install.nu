@@ -12,7 +12,9 @@ def main [--dry-run] {
         _ => { error make {msg: $"Unsupported platform: ($nu.os-info.name)"} }
     }
 
-    print $"Platform: ($platform)"
+    let is_meta = (sys host | get hostname | str contains "facebook")
+
+    print $"Platform: ($platform)(if $is_meta { ' (meta)' })"
     if $dry_run { print "[DRY RUN] No changes will be made." }
     print ""
 
@@ -63,7 +65,13 @@ def main [--dry-run] {
             continue
         }
 
-        let source_path = $dotfiles_root | path join ($entry.source | str replace "{platform}" $platform)
+        let source_resolved = $entry.source | str replace "{platform}" $platform
+        let source_path = if $is_meta {
+            let meta_path = $dotfiles_root | path join $"($source_resolved).meta"
+            if ($meta_path | path exists) { $meta_path } else { $dotfiles_root | path join $source_resolved }
+        } else {
+            $dotfiles_root | path join $source_resolved
+        }
         let target_path = $target_raw | path expand --no-symlink
         let target_dir = $target_path | path dirname
         let bak_path = $"($target_path).bak"

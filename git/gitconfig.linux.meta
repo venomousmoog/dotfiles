@@ -1,0 +1,18 @@
+[credential "https://ghe.oculus-rep.com"]
+	provider = github
+
+[http "https://git.internal.tfbnw.net"]
+	sslCert = /var/facebook/credentials/ddriver/x509/ddriver.pem
+	sslKey = /var/facebook/credentials/ddriver/x509/ddriver.pem
+
+[http "https://mononoke-git-lfs.internal.tfbnw.net"]
+	sslCert = /var/facebook/credentials/ddriver/x509/ddriver.pem
+	sslKey = /var/facebook/credentials/ddriver/x509/ddriver.pem
+
+[http "https://manifold.c2p.facebook.net"]
+	sslCert = /var/facebook/credentials/ddriver/x509/ddriver.pem
+
+[http]
+    proxy = https://fwdproxy:8082
+    proxySSLCert = /var/facebook/credentials/ddriver/x509/ddriver.pem
+    proxySSLKey = /var/facebook/credentials/ddriver/x509/ddriver.pem
