@@ -22,6 +22,9 @@
 [submodule]
 	recurse = true
 
+[pull]
+	rebase = true
+
 [alias]
 	co = checkout
 	br = branch
