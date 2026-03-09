@@ -28,6 +28,9 @@
 	br = branch
 	st = status
 
+[submodule]
+    recurse = true
+
 [include]
     path = ~/.gitconfig.os
 [http "https://git.internal.tfbnw.net"]
