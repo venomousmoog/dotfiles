@@ -19,6 +19,9 @@
 [push]
 	autoSetupRemote = true
 
+[submodule]
+	recurse = true
+
 [alias]
 	co = checkout
 	br = branch
