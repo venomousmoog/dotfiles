@@ -13,3 +13,7 @@
     name = WinMerge
     trustExitCode = true
     cmd = "WinMergeU.exe" -r -u -e $LOCAL $REMOTE
+
+[core]
+	autocrlf = true
+	safecrlf = false
