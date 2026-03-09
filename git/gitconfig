@@ -8,10 +8,6 @@
 	name = venomousmoog
 	email = venomousmoog@users.noreply.github.com
 
-[core]
-	autocrlf = true
-	safecrlf = false
-
 [http]
 	postBuffer = 157286400
 
@@ -27,9 +23,6 @@
 	co = checkout
 	br = branch
 	st = status
-
-[submodule]
-    recurse = true
 
 [include]
     path = ~/.gitconfig.os
