@@ -45,7 +45,7 @@ if $os == "macos" {
 }
 
 if $os == "windows" {
-    let program_files_x86 = ($env | get -i "ProgramFiles(x86)" | default "C:\\Program Files (x86)")
+    let program_files_x86 = ($env | get? "ProgramFiles(x86)" | default "C:\\Program Files (x86)")
     $env.PATH = ($env.PATH | append [
         $"($program_files_x86)\\Windows Kits\\10\\Debuggers\\x64\\"
         $"($env.LOCALAPPDATA)\\Programs\\WinMerge"

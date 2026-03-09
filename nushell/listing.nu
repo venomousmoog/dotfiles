@@ -342,7 +342,7 @@ const EXT_ICONS = {
 }
 
 # Get icon for a directory by name
-def get-dir-icon [name: string] -> string {
+def get-dir-icon [name: string] : string -> string {
     match $name {
         "docs" | "documents" => "\u{f401}"
         "desktop" => "\u{fcbe}"
@@ -380,7 +380,7 @@ def get-dir-icon [name: string] -> string {
 }
 
 # Get icon for well-known filenames (exact match)
-def get-wellknown-icon [name: string] -> any {
+def get-wellknown-icon [name: string] : string -> any {
     match $name {
         ".gitattributes" | ".gitconfig" | ".gitignore" | ".gitmodules" | ".gitkeep" | "git-history" => "\u{e702}"
         "LICENSE" | "LICENSE.md" | "LICENSE.txt" => "\u{f623}"
@@ -420,7 +420,7 @@ def get-wellknown-icon [name: string] -> any {
 
 # Main icon lookup function
 # Returns a Nerd Font glyph for the given filename and type
-def get-file-icon [name: string, file_type: string] -> string {
+def get-file-icon [name: string, file_type: string] : string -> string {
     let basename = ($name | path basename)
 
     # Directory icons
@@ -442,7 +442,7 @@ def get-file-icon [name: string, file_type: string] -> string {
     # Check by extension
     let ext = ($name | path parse | get extension)
     if $ext != "" {
-        let ext_icon = ($EXT_ICONS | get -i $ext)
+        let ext_icon = ($EXT_ICONS | get? $ext)
         if $ext_icon != null {
             return $ext_icon
         }
@@ -454,24 +454,24 @@ def get-file-icon [name: string, file_type: string] -> string {
 
 # Color lookup from LS_COLORS (via _LS_COLOR_MAP built in env.nu)
 # Returns an ANSI escape sequence string, or empty string if no match
-def get-file-color [name: string, file_type: string] -> string {
+def get-file-color [name: string, file_type: string] : string -> string {
     let colors = $env._LS_COLOR_MAP
 
     if $file_type == "dir" {
-        let code = ($colors | get -i di | default "")
+        let code = ($colors | get? di | default "")
         if $code != "" { return $"\u{1b}[($code)m" }
         return ""
     }
 
     if $file_type == "symlink" {
-        let code = ($colors | get -i ln | default "")
+        let code = ($colors | get? ln | default "")
         if $code != "" { return $"\u{1b}[($code)m" }
         return ""
     }
 
     let ext = ($name | path parse | get extension)
     if $ext != "" {
-        let code = ($colors | get -i $ext | default "")
+        let code = ($colors | get? $ext | default "")
         if $code != "" { return $"\u{1b}[($code)m" }
     }
 
@@ -479,7 +479,7 @@ def get-file-color [name: string, file_type: string] -> string {
 }
 
 # Format a file entry with icon, color, and type suffix (/ for dirs, @ for symlinks)
-def format-file-entry [name: string, file_type: string] -> string {
+def format-file-entry [name: string, file_type: string] : string -> string {
     let icon = (get-file-icon $name $file_type)
     let color = (get-file-color $name $file_type)
     let suffix = (match $file_type {
