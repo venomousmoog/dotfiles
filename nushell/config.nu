@@ -77,11 +77,6 @@ if "USER" in $env and not ("USERNAME" in $env) {
     $env.USERNAME = $env.USER
 }
 
-if not (which bat | is-empty) {
-    $env.BAT_THEME = "zenburn"
-    $env.BAT_STYLE = "grid,numbers"
-}
-
 
 # oh-my-posh prompt (inline setup, no source/cache needed)
 if not (which oh-my-posh | is-empty) {
@@ -141,8 +136,8 @@ def nls [path?: string] {
 }
 
 # Aliases -- bat as cat/less replacement
-alias cat = ^bat
-alias less = ^bat
+alias cat = ^bat --paging=never
+alias less = ^bat --paging=auto
 alias iex = load-bash-env
 
 # Startup banner -- show only startup time
@@ -158,3 +153,4 @@ $env.config.hooks.pre_prompt = ($env.config.hooks.pre_prompt | default [] | appe
         update-tmux-env
     }
 })
+source $"($nu.home-path)/.cargo/env.nu"
