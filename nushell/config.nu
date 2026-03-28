@@ -27,6 +27,7 @@ let platform_dir = match $os {
 
 # PATH additions (before dependency checks so tools in dotfiles are found)
 $env.PATH = ($env.PATH | prepend $"($env.DOTFILES_PATH)/powershell/Tools/($platform_dir)")
+$env.PATH = ($env.PATH | prepend $"($env.DOTFILES_PATH)/scripts")
 
 if $os == "linux" {
     $env.PATH = ($env.PATH | append "/packages/adb/latest/")

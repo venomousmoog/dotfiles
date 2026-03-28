@@ -13,6 +13,6 @@
 	sslCert = /var/facebook/credentials/ddriver/x509/ddriver.pem
 
 [http]
-    proxy = https://fwdproxy:8082
-    proxySSLCert = /var/facebook/credentials/ddriver/x509/ddriver.pem
-    proxySSLKey = /var/facebook/credentials/ddriver/x509/ddriver.pem
+    proxy = http://fwdproxy:8080
+    sslCert = /var/facebook/credentials/ddriver/x509/ddriver.pem
+    sslKey = /var/facebook/credentials/ddriver/x509/ddriver.pem
