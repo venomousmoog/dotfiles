@@ -22,4 +22,9 @@ get_tmux_env
 
 rm -f "$STATE_FILE" "$ACK_FILE"
 
+# Restore tmux default-command to global setting (nushell)
+if [ -n "$TMUX_PANE" ]; then
+    tmux set-option -wu -t "$TMUX_PANE" default-command
+fi
+
 exit 0

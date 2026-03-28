@@ -154,3 +154,4 @@ $env.config.hooks.pre_prompt = ($env.config.hooks.pre_prompt | default [] | appe
         update-tmux-env
     }
 })
+source $"($nu.home-path)/.cargo/env.nu"
