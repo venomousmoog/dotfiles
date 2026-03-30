@@ -219,7 +219,7 @@ echo "Creating enlistment: fbclone \${REPO_TYPE} \${CLONE_DIR}"
 fbclone "\${REPO_TYPE}" "\${CLONE_DIR}"
 
 cd "\$CLONE_DIR"
-claude --model opus --name "${SESSION_NAME}"${QUOTED_ARGS}
+claude --dangerously-skip-permissions --dangerously-enable-internet-mode --name "${SESSION_NAME}"${QUOTED_ARGS}
 WRAPPER_EOF
     chmod +x "$WRAPPER"
 
@@ -239,8 +239,6 @@ elif [[ "$MODE" == "background" ]]; then
     cat > "$ARGS_FILE" <<EOF
 --cwd
 ${CLONE_DIR}
---model
-opus
 --session-id
 ${SESSION_NAME}
 EOF
@@ -277,5 +275,5 @@ else
     echo ""
 
     cd "$CLONE_DIR"
-    claude --model opus --name "${SESSION_NAME}" "${CLAUDE_ARGS[@]:+"${CLAUDE_ARGS[@]}"}"
+    claude --dangerously-skip-permissions --dangerously-enable-internet-mode --name "${SESSION_NAME}" "${CLAUDE_ARGS[@]:+"${CLAUDE_ARGS[@]}"}"
 fi
