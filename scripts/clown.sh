@@ -2,7 +2,7 @@
 # (c) Meta Platforms, Inc. and affiliates. Confidential and proprietary.
 #
 # Launches Claude Code in a fresh clone. On exit, ensures all changes are
-# committed and synced to commit cloud.
+# committed and synced to commit cloud, then prompts to remove the enlistment.
 #
 # Usage:
 #   clown.sh [options] <repo> [-- claude args...]
@@ -14,6 +14,27 @@
 set -euo pipefail
 
 TEMP_BASE="$HOME/src/temp"
+WORKSPACE_FILE="$HOME/src/monster.code-workspace"
+
+# --- Workspace file helpers ---
+add_to_workspace() {
+    local dir="$1"
+    if [[ -f "$WORKSPACE_FILE" ]] && command -v jq &>/dev/null; then
+        local tmp
+        tmp=$(mktemp)
+        jq --arg path "$dir" '.folders += [{"path": $path}]' "$WORKSPACE_FILE" > "$tmp" && mv "$tmp" "$WORKSPACE_FILE"
+        echo "Added ${dir} to workspace."
+    fi
+}
+
+remove_from_workspace() {
+    local dir="$1"
+    if [[ -f "$WORKSPACE_FILE" ]] && command -v jq &>/dev/null; then
+        local tmp
+        tmp=$(mktemp)
+        jq --arg path "$dir" '.folders |= map(select(.path != $path))' "$WORKSPACE_FILE" > "$tmp" && mv "$tmp" "$WORKSPACE_FILE"
+    fi
+}
 
 # --- Clean mode: remove inactive clones ---
 clean_clones() {
@@ -50,6 +71,7 @@ clean_clones() {
             kept=$((kept + 1))
         else
             echo "  INACTIVE  ${name}  — removing..."
+            remove_from_workspace "${dir%/}"
             eden rm "$dir" 2>/dev/null || rm -rf "$dir"
             removed=$((removed + 1))
         fi
@@ -162,8 +184,25 @@ finalize() {
 
     echo ""
     echo "Session ${SESSION_NAME} finalized."
-    echo "  Clone: ${CLONE_DIR}"
-    echo "  To resume: cd ${CLONE_DIR} && claude --continue"
+
+    # Prompt to remove the enlistment (default: remove)
+    cd "$HOME"
+    local response
+    if [[ -t 0 ]]; then
+        read -r -p "Remove enlistment ${CLONE_DIR}? [Y/n] " response
+        response=${response:-Y}
+    else
+        response="Y"
+    fi
+
+    if [[ "$response" =~ ^[Yy] ]]; then
+        remove_from_workspace "$CLONE_DIR"
+        eden rm "$CLONE_DIR" 2>/dev/null || rm -rf "$CLONE_DIR"
+        echo "Enlistment removed."
+    else
+        echo "Enlistment kept at ${CLONE_DIR}"
+        echo "  To resume: cd ${CLONE_DIR} && claude --continue"
+    fi
 }
 
 # --- Launch ---
@@ -186,6 +225,26 @@ set -euo pipefail
 CLONE_DIR="${CLONE_DIR}"
 SESSION_NAME="${SESSION_NAME}"
 REPO_TYPE="${REPO_TYPE}"
+WORKSPACE_FILE="${WORKSPACE_FILE}"
+
+add_to_workspace() {
+    local dir="\$1"
+    if [[ -f "\$WORKSPACE_FILE" ]] && command -v jq &>/dev/null; then
+        local tmp
+        tmp=\$(mktemp)
+        jq --arg path "\$dir" '.folders += [{"path": \$path}]' "\$WORKSPACE_FILE" > "\$tmp" && mv "\$tmp" "\$WORKSPACE_FILE"
+        echo "Added \${dir} to workspace."
+    fi
+}
+
+remove_from_workspace() {
+    local dir="\$1"
+    if [[ -f "\$WORKSPACE_FILE" ]] && command -v jq &>/dev/null; then
+        local tmp
+        tmp=\$(mktemp)
+        jq --arg path "\$dir" '.folders |= map(select(.path != \$path))' "\$WORKSPACE_FILE" > "\$tmp" && mv "\$tmp" "\$WORKSPACE_FILE"
+    fi
+}
 
 finalize() {
     echo ""
@@ -207,16 +266,31 @@ finalize() {
     sl cloud sync --reason "sync work to commit cloud | sl help cloud" 2>/dev/null || true
     echo ""
     echo "Session \${SESSION_NAME} finalized."
-    echo "  Clone: \${CLONE_DIR}"
-    echo "  To resume: cd \${CLONE_DIR} && claude --continue"
-    echo ""
-    echo "Press Enter to close this window..."
-    read -r
+
+    # Prompt to remove the enlistment (default: remove)
+    cd "\$HOME"
+    local response
+    if [[ -t 0 ]]; then
+        read -r -p "Remove enlistment \${CLONE_DIR}? [Y/n] " response
+        response=\${response:-Y}
+    else
+        response="Y"
+    fi
+
+    if [[ "\$response" =~ ^[Yy] ]]; then
+        remove_from_workspace "\$CLONE_DIR"
+        eden rm "\$CLONE_DIR" 2>/dev/null || rm -rf "\$CLONE_DIR"
+        echo "Enlistment removed."
+    else
+        echo "Enlistment kept at \${CLONE_DIR}"
+        echo "  To resume: cd \${CLONE_DIR} && claude --continue"
+    fi
 }
 trap finalize EXIT INT TERM
 
 echo "Creating enlistment: fbclone \${REPO_TYPE} \${CLONE_DIR}"
 fbclone "\${REPO_TYPE}" "\${CLONE_DIR}"
+add_to_workspace "\${CLONE_DIR}"
 
 cd "\$CLONE_DIR"
 claude --dangerously-skip-permissions --dangerously-enable-internet-mode --name "${SESSION_NAME}"${QUOTED_ARGS}
@@ -234,6 +308,7 @@ elif [[ "$MODE" == "background" ]]; then
     # Background mode: clone here, then launch claude_wrapper
     echo "Creating enlistment: fbclone $REPO_TYPE $CLONE_DIR"
     fbclone "$REPO_TYPE" "$CLONE_DIR"
+    add_to_workspace "$CLONE_DIR"
 
     ARGS_FILE="/tmp/claude_session_args_${SESSION_NAME}.txt"
     cat > "$ARGS_FILE" <<EOF
@@ -264,6 +339,7 @@ else
     # Interactive mode in current terminal (--no-tmux or no tmux session)
     echo "Creating enlistment: fbclone $REPO_TYPE $CLONE_DIR"
     fbclone "$REPO_TYPE" "$CLONE_DIR"
+    add_to_workspace "$CLONE_DIR"
 
     trap finalize EXIT INT TERM
 
