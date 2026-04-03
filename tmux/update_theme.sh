@@ -34,17 +34,20 @@ update_theme() {
     # tmux set-option -g window-status-current-format '#[fg=$active_color,bg=$bg_color,bold] #I:#{@claude}#W'
     # tmux set-option -g window-status-separator '#[fg=$inactive_color,nobold] │ '
     $TMUX_BIN set-option -g status-interval 2
-    $TMUX_BIN set-option -g window-status-format "#[fg=$inactive_color,bg=$bg_color]#I:#{@claude}#W"
-    $TMUX_BIN set-option -g window-status-current-format "#[fg=$active_color,bg=$bg_color,bold]#I:#{@claude}#W"
+    $TMUX_BIN set-option -g window-status-format "#[fg=$inactive_color,bg=$bg_color]#I:#{@claude}#[italics]#{@temp_repo}#[noitalics]#W"
+    $TMUX_BIN set-option -g window-status-current-format "#[fg=$active_color,bg=$bg_color,bold]#I:#{@claude}#[nobold,italics,fg=$inactive_color]#{@temp_repo}#[noitalics,bold,fg=$active_color]#W"
     $TMUX_BIN set-option -g window-status-separator '#[fg=#6c7086,nobold] │ '
 
     # status-left is now managed dynamically by claude_sessions.py
 
-    # Status right: only the cross-session Claude script (side-effect only, no output)
-    $TMUX_BIN set-option -g status-right "#(python3 ~/src/dotfiles/tmux/claude_sessions.py)"
+    # Status right: side-effect-only scripts (no visible output)
+    # - sync_temp_repos: sets @temp_repo per-window for cloning dir display
+    # - claude_sessions: cross-session status indicators
+    # Note: window title sync is triggered by the Stop hook, not status-right
+    $TMUX_BIN set-option -g status-right "#(~/src/dotfiles/tmux/sync_temp_repos.sh)#(python3 ~/src/dotfiles/tmux/claude_sessions.py)"
 
     # Bind ctrl-b w to show Claude icons in choose-tree view
-    $TMUX_BIN bind-key w choose-tree -wf '#{?#{m:__tun_ctrl,#{session_name}},0,1}' -F "#{?#{session_format},#[bold]#{?#{@host},#{@host},#h}#[nobold],#{window_index}:#{@claude}#{window_name}#{window_flags}}"
+    $TMUX_BIN bind-key w choose-tree -wf '#{?#{m:__tun_ctrl,#{session_name}},0,1}' -F "#{?#{session_format},#[bold]#{?#{@host},#{@host},#h}#[nobold],#{@claude}#[italics]#{@temp_repo}#[noitalics]#{window_name}#{window_flags}}"
 
     # Mouse click on secondary session status lines: switch to that session:window
     # User ranges in status-format[N] put the argument in #{mouse_status_range}

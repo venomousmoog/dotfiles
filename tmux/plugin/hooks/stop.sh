@@ -39,4 +39,17 @@ JSON=$(jq -n \
 
 write_state "$JSON"
 
+# Launch window title sync in the background (haiku call while API is idle)
+CWD=$(echo "$INPUT" | jq -r '.cwd // empty')
+debug_log "  Title sync: SESSION_ID=$SESSION_ID CWD=$CWD TMUX_PANE=$TMUX_PANE"
+if [ -n "$SESSION_ID" ] && [ -n "$TMUX_PANE" ]; then
+    debug_log "  Title sync: launching sync_window_titles.py"
+    nohup python3 ~/src/dotfiles/tmux/sync_window_titles.py \
+        "$SESSION_ID" "$TMUX_PANE" "$CWD" \
+        </dev/null >>~/.claude-tmux-statusline/debug.log 2>&1 &
+    disown
+else
+    debug_log "  Title sync: skipped (missing SESSION_ID or TMUX_PANE)"
+fi
+
 exit 0
