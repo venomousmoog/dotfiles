@@ -201,7 +201,6 @@ finalize() {
         echo "Enlistment removed."
     else
         echo "Enlistment kept at ${CLONE_DIR}"
-        echo "  To resume: cd ${CLONE_DIR} && claude --continue"
     fi
 }
 
@@ -283,7 +282,6 @@ finalize() {
         echo "Enlistment removed."
     else
         echo "Enlistment kept at \${CLONE_DIR}"
-        echo "  To resume: cd \${CLONE_DIR} && claude --continue"
     fi
 }
 trap finalize EXIT INT TERM
@@ -293,7 +291,7 @@ fbclone "\${REPO_TYPE}" "\${CLONE_DIR}"
 add_to_workspace "\${CLONE_DIR}"
 
 cd "\$CLONE_DIR"
-claude --dangerously-skip-permissions --dangerously-enable-internet-mode --name "${SESSION_NAME}"${QUOTED_ARGS}
+claude --dangerously-skip-permissions --dangerously-enable-internet-mode${QUOTED_ARGS}
 WRAPPER_EOF
     chmod +x "$WRAPPER"
 
@@ -351,5 +349,5 @@ else
     echo ""
 
     cd "$CLONE_DIR"
-    claude --dangerously-skip-permissions --dangerously-enable-internet-mode --name "${SESSION_NAME}" "${CLAUDE_ARGS[@]:+"${CLAUDE_ARGS[@]}"}"
+    claude --dangerously-skip-permissions --dangerously-enable-internet-mode "${CLAUDE_ARGS[@]:+"${CLAUDE_ARGS[@]}"}"
 fi
