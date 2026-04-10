@@ -72,7 +72,7 @@ clean_clones() {
         else
             echo "  INACTIVE  ${name}  — removing..."
             remove_from_workspace "${dir%/}"
-            eden rm "$dir" 2>/dev/null || rm -rf "$dir"
+            eden rm --yes "$dir" 2>/dev/null || rm -rf "$dir"
             removed=$((removed + 1))
         fi
     done
