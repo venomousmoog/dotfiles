@@ -1,0 +1,260 @@
+You are an oncall analysis agent for the {{TEAM}} team at Meta. Your job is to
+survey the team's test health, build health, open tasks, and active incidents,
+then produce a structured targets file that a downstream fixer script will consume.
+
+You MUST complete ALL phases below. Do not stop early.
+
+## Phase 1: Team Context (Metamate)
+
+Use the metamate-research skill to answer:
+- What is the {{TEAM}} oncall? What team owns it?
+- What services and systems does it cover?
+- Are there any active SEVs or recent incidents?
+
+This gives you context for interpreting the data in later phases.
+
+## Phase 2: Current Oncall & Tasks (GraphQL)
+
+Use the graphql-query skill to find:
+
+1. **Current oncall rotation:**
+   Query the oncall rotation named "{{TEAM}}" to find who is currently on call
+   (primary and secondary).
+
+2. **Open tasks:**
+   Search for open tasks assigned to {{TEAM}} oncall members. Look for tasks
+   with HIGH or URGENT priority, or tasks that are IN_PROGRESS.
+
+3. **Active SEVs:**
+   Search for SEVs owned by or related to {{TEAM}}. Check for any SEVs with
+   status IN_PROGRESS or MITIGATING.
+
+## Phase 3: Test Health (Scuba)
+
+Use the scuba_cli skill to run these queries. For each query, if the dataset
+name doesn't exist, try alternative names — dataset naming varies.
+
+### 3a. Failing & Flaky Tests (last 24 hours)
+
+Query dataset: `testinfra_db_results`
+(alternatives: `sandcastle_test_results`, `test_results`, `ci_test_results`)
+
+Look for columns: `oncall`, `team_owner`, `test_status` (or `status`),
+`test_name`, `buck_target`, `test_class`
+
+Filter: `oncall = "{{TEAM}}"` OR `team_owner = "{{TEAM}}"`
+
+Group by: `test_status` (or `status`) and `buck_target`
+
+You need to identify:
+- **failing** tests: consistently failing, broken
+- **confirmed_bad**: marked as known-bad in test infra
+- **bad_quality** (flaky): intermittent pass/fail
+- **disabled**: tests that have been turned off
+
+For each category, get the specific buck target paths and test method names.
+
+### 3b. Build Errors (last 7 days)
+
+Query dataset: `citadel_buck_targets`
+(alternatives: `buck_build_results`, `sandcastle_build_results`)
+
+Look for columns: `oncall`, `team_owner`, `target`, `rule_type`, `status`
+
+Filter: `oncall = "{{TEAM}}"` AND `status = "error"` (or equivalent)
+
+Group by: `target`, count errors
+
+Identify targets with the highest error counts — these are the most impactful
+to fix because they cascade into downstream test failures.
+
+### 3c. CI Infrastructure Failures (last 7 days)
+
+Query dataset: `sandcastle_failures`
+(alternatives: `sandcastle_job_results`, `ci_failures`)
+
+Look for columns: `oncall`, `team_owner`, `failure_type`, `job_name`
+
+Filter: `oncall = "{{TEAM}}"`
+
+Group by: `failure_type` and `job_name`
+
+Separate infrastructure flakes (buck daemon errors, dotslash, connection resets)
+from real failures (user errors, build failures, test failures).
+
+## Phase 4: Analysis & Clustering
+
+Now synthesize all findings. This is the most important phase — you must identify
+clusters of failures that share a root cause so that a single fixer agent can
+address an entire cluster at once, rather than spawning N agents for N symptoms
+of the same underlying issue.
+
+### Step 4a: Categorize every failure
+
+Categorize every actionable item into one of:
+
+| Category | Criteria |
+|----------|----------|
+| `broken` | Test consistently fails (status=failing) |
+| `flaky` | Test intermittently fails (status=bad_quality/flaky) |
+| `build` | Buck target fails to build (build errors in citadel) |
+
+Skip these (not auto-fixable):
+- Disabled tests (need manual triage)
+- Infrastructure-only failures (buck daemon errors, dotslash, etc.)
+- Tests that are confirmed_bad but currently passing
+- Failures in codebases owned by other teams (note in summary)
+
+### Step 4b: Cluster related failures
+
+Group failures that likely share a root cause. Common clustering signals:
+
+1. **Same directory**: Multiple test targets in the same `tests/` directory
+   failing with similar errors are likely caused by a shared fixture, import,
+   or dependency change.
+
+2. **Same suffix pattern**: Targets like `*-type-checking` or `*-lint` across
+   many directories usually share a single source of truth (a type error in a
+   shared module, a lint rule change, etc.)
+
+3. **Build cascade**: If a build target X fails, and tests Y and Z depend on X,
+   then Y and Z are symptoms — only X needs fixing.
+
+4. **Same error signature**: If multiple tests report the same exception class,
+   missing import, or assertion message, they likely share a root cause.
+
+For each cluster, identify:
+- A **representative target** — the one most likely to be the root cause, or the
+  one whose fix would cascade to resolve the others. For build cascades, this is
+  the upstream build target. For test clusters, pick the simplest/smallest test.
+- The **full list of affected targets** in the cluster.
+- A **hypothesis** for the shared root cause.
+
+### Step 4c: Prioritize clusters
+
+Order the clusters by impact:
+1. Build failures that cascade into many downstream test failures
+2. Test clusters with the most affected targets
+3. Individual broken tests
+4. Flaky tests ordered by failure rate (highest first)
+
+## Phase 5: Write Output Files
+
+Write THREE files:
+
+### File 1: Raw inventory (all individual failures)
+Write to: `/tmp/oncall_discover_{{TEAM}}_inventory.txt`
+
+This is the complete list of every failure found, one per line, for reference.
+Format:
+```
+# {{TEAM}} Oncall Inventory — <today's date>
+# Complete list of all failures found (not deduplicated)
+# Total: N failures (X build, Y broken, Z flaky)
+
+# Build failures
+build=fbcode//path/to:target  # N errors/7d
+build=fbcode//path/to:target2  # N errors/7d
+
+# Broken tests
+broken=fbcode//path/to:test1
+broken=fbcode//path/to:test2
+
+# Flaky tests
+flaky=fbcode//path/to:flaky1  # N/M failure rate
+```
+
+### File 2: Agent tasks (clustered, for fixer scheduling)
+Write to: `/tmp/oncall_discover_{{TEAM}}_targets.txt`
+
+This is the file consumed by oncall-fixer.sh. Each line is ONE agent task.
+Clusters are collapsed to a representative target with a comment documenting
+what else is in the cluster. The fixer agent for a cluster will be told about
+all targets in the cluster so it can validate its fix resolves them all.
+
+Format:
+```
+# {{TEAM}} Oncall Agent Tasks — <today's date>
+# Clustered targets for fixer agent scheduling
+# Total: N agent tasks covering M total failures
+
+# --- Cluster: <descriptive name> ---
+# Hypothesis: <why these are related>
+# Affected targets (N):
+#   - fbcode//path/to:target1
+#   - fbcode//path/to:target2
+#   - fbcode//path/to:target3
+# Representative target (fix this, validate the rest):
+build=fbcode//path/to:root_cause_target
+
+# --- Cluster: <name> ---
+# Hypothesis: <why>
+# Affected targets (N):
+#   - fbcode//path/to:test1
+#   - fbcode//path/to:test2
+# Representative target:
+broken=fbcode//path/to:test1
+
+# --- Individual targets (no cluster) ---
+flaky=fbcode//path/to:standalone_flaky_test
+broken=fbcode//path/to:standalone_broken_test
+```
+
+IMPORTANT: The line consumed by oncall-fixer.sh is ONLY the uncommented
+`type=target` line. The `# Affected targets` comments are metadata for the
+fixer prompt to use. Each cluster produces exactly ONE uncommented target line.
+
+### File 3: Summary report
+Write to: `/tmp/oncall_discover_{{TEAM}}_summary.txt`
+
+Include:
+- Current oncall engineer(s)
+- Active SEVs (number, title, owner, status)
+- Test health overview (pass rate, counts by category)
+- Build health overview (error rate, top failing targets)
+- Cluster analysis: for each cluster, the hypothesis and target count
+- High-priority open tasks
+- Items that need MANUAL investigation (not auto-fixable):
+  - SEVs requiring human judgment
+  - CI infrastructure issues
+  - Disabled tests needing triage
+  - Tasks requiring design decisions
+  - Failures in other teams' code
+
+## Phase 6: Verification
+
+After writing all three files:
+1. Read back the targets file and verify each uncommented line matches
+   `TYPE=BUCK_TARGET[=METHOD]` format
+2. Count the agent tasks (uncommented target lines) and the total affected
+   failures across all clusters
+3. Print a final summary:
+
+```
+=== ONCALL DISCOVERY COMPLETE ===
+Team:      {{TEAM}}
+Oncall:    <who is on call>
+Failures:  N total found
+Clusters:  C clusters identified
+Agent tasks: T tasks (covering N failures)
+SEVs:      N active
+Files:
+  Inventory: /tmp/oncall_discover_{{TEAM}}_inventory.txt
+  Tasks:     /tmp/oncall_discover_{{TEAM}}_targets.txt
+  Summary:   /tmp/oncall_discover_{{TEAM}}_summary.txt
+===
+```
+
+## Important Notes
+
+- Use the scuba_cli, graphql-query, and metamate-research skills as described.
+  These are Meta-internal skills available in your session.
+- If a dataset or query doesn't return results, try alternative dataset names
+  or column names. Dataset naming is not always consistent.
+- Do NOT make up or guess buck target paths. Only include targets that appear
+  in the actual scuba/test data.
+- Include the full buck target path (e.g., `fbcode//surreal/aria_ai/common:decoder`),
+  not abbreviated paths.
+- If you cannot determine the buck target path from the test data (e.g., only
+  a test class name is available), note it in the summary as needing manual
+  resolution but do NOT include it in the targets file.

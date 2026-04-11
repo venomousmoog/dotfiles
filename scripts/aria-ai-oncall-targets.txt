@@ -1,0 +1,16 @@
+# Aria AI Oncall Targets — April 2026
+# Format: TYPE=BUCK_TARGET[=TEST_METHOD]
+
+# Actively failing (broken)
+broken=fbcode//surreal/aria_ai/interactions/agent/utils/tests:test_aria_ai_auth=test_service_router_error_propagates
+
+# Build failures (cxx_python_extension — high cascade impact)
+build=fbcode//surreal/aria_ai/common:decoder
+build=fbcode//surreal/aria_ai/interactions/server:oatmeal_bindings
+build=fbcode//surreal/aria_ai/common/streams:stream_bindings
+
+# Flaky tests
+flaky=fbcode//surreal/aria_ai/models/services/midas:handler_test
+flaky=fbcode//surreal/aria_ai/devtools/cli/server/tests:test_session_export_handler
+flaky=fbcode//surreal/aria_ai/prototypes/proactive_agents/storage/tests:test_storage_layer
+flaky=fbcode//surreal/aria_ai/common/dmodel/tests:test_model
