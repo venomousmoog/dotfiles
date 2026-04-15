@@ -10,20 +10,27 @@
 #   oncall-fixer.sh --team aria_ai --config targets.txt
 #   oncall-fixer.sh --dry-run --team aria_ai broken:fbcode//path/to:test
 #
-# Target format: TYPE=BUCK_TARGET[=TEST_NAME]
-#   TYPE is one of: broken, flaky, build
-#   BUCK_TARGET is the full buck target path (contains colons, so we use = as separator)
-#   TEST_NAME (optional) is the specific failing test method
+# Target format: TYPE=TARGET[=TEST_NAME]
+#   TYPE is one of: broken, flaky, build, conveyor, tw
+#   TARGET is the full target path (buck target, conveyor ID, or TW job handle)
+#   TEST_NAME (optional) is the specific failing test method (broken/flaky only)
 #
 # Examples:
 #   broken=fbcode//surreal/aria_ai/tests:test_auth=test_service_router_error
 #   flaky=fbcode//surreal/aria_ai/models:handler_test
 #   build=fbcode//surreal/aria_ai/common:decoder
+#   conveyor=surreal/aria_ai_interactions
+#   tw=tsp_prn/aria_ai/aria_ai_perception_gateway.dev
+#   dlq=hand_gaze_queue
+#   latency=message_delivery
 #
 # Config file format (one target per line, # for comments):
 #   broken=fbcode//surreal/aria_ai/tests:test_auth=test_service_router_error
 #   flaky=fbcode//surreal/aria_ai/models:handler_test
 #   build=fbcode//surreal/aria_ai/common:decoder
+#   conveyor=surreal/aria_ai_interactions
+#   tw=tsp_prn/aria_ai/aria_ai_perception_gateway.dev
+#   dlq=hand_gaze_queue
 
 set -euo pipefail
 
@@ -59,11 +66,15 @@ Options:
   --delay SECS    Seconds between launches (default: 30)
   -h, --help      Show this help
 
-Target format: TYPE=BUCK_TARGET[=TEST_NAME]
+Target format: TYPE=TARGET[=TEST_NAME]
   broken=fbcode//path:target          Actively failing test
   broken=fbcode//path:target=method   Specific failing test method
   flaky=fbcode//path:target           Flaky test
   build=fbcode//path:target           Build failure
+  conveyor=surreal/aria_ai_interactions  Conveyor pipeline failure
+  tw=tsp_prn/aria_ai/aria_ai_gw.dev  TW job health (expiration/crashes/OOM)
+  dlq=hand_gaze_queue                DLQ backlog alert
+  latency=message_delivery           Message delivery latency alert
 
 The = separator is used instead of : because buck targets contain colons.
 EOF
@@ -217,7 +228,7 @@ if [[ ${#TARGETS[@]} -eq 0 ]]; then
 fi
 
 # --- Validate prompt templates exist ---
-for tmpl in broken-test-fixer.txt flaky-test-fixer.txt build-failure-fixer.txt; do
+for tmpl in broken-test-fixer.txt flaky-test-fixer.txt build-failure-fixer.txt conveyor-failure.txt tw-job-health.txt queue-backlog.txt message-delivery-latency.txt; do
     if [[ ! -f "${PROMPT_DIR}/${tmpl}" ]]; then
         echo "Error: missing prompt template: ${PROMPT_DIR}/${tmpl}"
         exit 1
@@ -273,9 +284,25 @@ for idx in "${!TARGETS[@]}"; do
             TEMPLATE_FILE="${PROMPT_DIR}/build-failure-fixer.txt"
             LABEL="BUILD"
             ;;
+        conveyor)
+            TEMPLATE_FILE="${PROMPT_DIR}/conveyor-failure.txt"
+            LABEL="CONVEYOR"
+            ;;
+        tw)
+            TEMPLATE_FILE="${PROMPT_DIR}/tw-job-health.txt"
+            LABEL="TW"
+            ;;
+        dlq)
+            TEMPLATE_FILE="${PROMPT_DIR}/queue-backlog.txt"
+            LABEL="DLQ"
+            ;;
+        latency)
+            TEMPLATE_FILE="${PROMPT_DIR}/message-delivery-latency.txt"
+            LABEL="LATENCY"
+            ;;
         *)
             echo "Error: unknown type '${TYPE}' in: ${target_spec}"
-            echo "Valid types: broken, flaky, build"
+            echo "Valid types: broken, flaky, build, conveyor, tw, dlq, latency"
             exit 1
             ;;
     esac

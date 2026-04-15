@@ -40,7 +40,7 @@ CLAUDE_DIR = Path.home() / ".claude"
 PROJECTS_DIR = CLAUDE_DIR / "projects"
 STATE_FILE = CLAUDE_DIR / "window-title-state.json"
 
-GENERIC_TITLES = {"bash", "zsh", "nu", "fish", "sh", "~", "claude", "node"}
+GENERIC_TITLES = {"bash", "zsh", "nu", "fish", "sh", "shale", "~", "claude", "node"}
 
 MIN_CHECK_INTERVAL = 60
 MIN_SIZE_CHANGE_BYTES = 2048

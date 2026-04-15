@@ -154,3 +154,10 @@ $env.config.hooks.pre_prompt = ($env.config.hooks.pre_prompt | default [] | appe
         update-tmux-env
     }
 })
+
+# myclaw instance: rodan
+alias myclaw-rodan = do {|...rest|
+    with-env { MYCLAW_HOME: "/home/ddriver/.myclaw-rodan" } {
+        myclaw ...$rest
+    }
+}
