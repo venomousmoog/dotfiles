@@ -9,6 +9,7 @@ while ($null -ne (Get-Item $scriptFile).LinkType) {
     $scriptFile = (Get-Item $scriptFile).LinkTarget
 }
 $scriptPath = Split-Path $scriptFile
+$dotfilesPath = Split-Path -Parent $scriptPath
 Write-Output "profile from $scriptFile"
 
 # helper to figure out what commands might be installed
@@ -32,24 +33,59 @@ if ($IsMacOS) {
     $platformName = 'MacOS'
 }
 
+function Add-To-Path {
+    param(
+        [Parameter(Mandatory = $true)]
+        [string]$PathToAdd
+    )
+
+    if ([string]::IsNullOrWhiteSpace($PathToAdd)) { return }
+
+    $normalized = $PathToAdd.Trim()
+
+    # Skip unresolved env-var style entries (e.g. empty OneDriveConsumer on non-Windows)
+    if ($normalized -match '^\$\(.*\)$') { return }
+
+    # Only add existing paths, and avoid duplicates
+    if (-not (Test-Path -LiteralPath $normalized)) {
+        Write-Warning "Add-To-Path: path not found: $normalized"
+        return
+    }
+
+    $current = @()
+    if (-not [string]::IsNullOrEmpty($env:PATH)) {
+        $current = $env:PATH -split [System.IO.Path]::PathSeparator
+    }
+
+    if ($normalized -notin $current) {
+        $env:PATH = if ($current.Count -gt 0) {
+            $env:PATH + [System.IO.Path]::PathSeparator + $normalized
+        } else {
+            $normalized
+        }
+    }
+}
+
 # add tools to path:
-$env:PATH += [System.IO.Path]::PathSeparator + "$($scriptPath)/Tools/$($platformName)"
-$env:PATH += [System.IO.Path]::PathSeparator + "$($env:OneDriveConsumer)/Tools"
+Add-To-Path "$($scriptPath)/Tools/$($platformName)"
+Add-To-Path "$($env:OneDriveConsumer)/Tools"
 
 if ($IsWindows) {
-    $env:PATH += [System.IO.Path]::PathSeparator + ${Env:ProgramFiles(x86)} + '\Windows Kits\10\Debuggers\x64\'
-    $env:PATH += [System.IO.Path]::PathSeparator + "$env:LOCALAPPDATA\Programs\WinMerge"
-    $env:PATH += [System.IO.Path]::PathSeparator + "$env:LOCALAPPDATA\Android\sdk\platform-tools\"
-    $env:PATH += [System.IO.Path]::PathSeparator + "$env:OneDriveConsumer\tools\platform-tools\"
-    $env:PATH += [System.IO.Path]::PathSeparator + "$env:OneDriveConsumer\tools\"
+    Add-To-Path "${env:ProgramFiles(x86)}\Windows Kits\10\Debuggers\x64\"
+    Add-To-Path "$($env:LOCALAPPDATA)\Programs\WinMerge"
+    Add-To-Path "$($env:LOCALAPPDATA)\Android\sdk\platform-tools\"
+    Add-To-Path "$($env:OneDriveConsumer)\tools\platform-tools\"
+    Add-To-Path "$($env:OneDriveConsumer)\tools\"
 }
 if ($IsMacOS) {
     $(~/homebrew/bin/brew shellenv) | Invoke-Expression
-    $env:PATH += [System.IO.Path]::PathSeparator + '/Users/ddriver/Library/Android/sdk/platform-tools/'
+    Add-To-Path '/Users/ddriver/Library/Android/sdk/platform-tools/'
 }
 if ($IsLinux) {
-    $env:PATH += [System.IO.Path]::PathSeparator + '/packages/adb/latest/'
+    Add-To-Path '/packages/adb/latest/'
+    Add-To-Path "$($dotfilesPath)/scripts"
 }
+
 
 # disable python virtual environment prompt support (we get this from oh-my-posh)
 $env:VIRTUAL_ENV_DISABLE_PROMPT = 1
@@ -362,3 +398,5 @@ if (Get-Command bat -ErrorAction SilentlyContinue) {
     $sysCat = Get-Command cat -ErrorAction SilentlyContinue
     if ($sysCat) { Set-Alias -Name cat -Value $sysCat.Source -Option AllScope }
 }
+
+$env:CLAUDE_CODE_VERSION_OVERRIDE="latest"

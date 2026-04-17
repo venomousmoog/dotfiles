@@ -197,7 +197,7 @@ finalize() {
 
     if [[ "$response" =~ ^[Yy] ]]; then
         remove_from_workspace "$CLONE_DIR"
-        eden rm "$CLONE_DIR" 2>/dev/null || rm -rf "$CLONE_DIR"
+        eden rm  --yes "$CLONE_DIR" 2>/dev/null || rm -rf "$CLONE_DIR"
         echo "Enlistment removed."
     else
         echo "Enlistment kept at ${CLONE_DIR}"
@@ -278,7 +278,7 @@ finalize() {
 
     if [[ "\$response" =~ ^[Yy] ]]; then
         remove_from_workspace "\$CLONE_DIR"
-        eden rm "\$CLONE_DIR" 2>/dev/null || rm -rf "\$CLONE_DIR"
+        eden rm --yes "\$CLONE_DIR" 2>/dev/null || rm -rf "\$CLONE_DIR"
         echo "Enlistment removed."
     else
         echo "Enlistment kept at \${CLONE_DIR}"
