@@ -7,8 +7,8 @@ while IFS= read -r line; do
     window_id="${line%%:*}"
     path="${line#*:}"
     case "$path" in
-        */src/temp/*)
-            rest="${path#*/src/temp/}"
+        */src/clown/*)
+            rest="${path#*/src/clown/}"
             $TMUX_BIN set-option -wqt "$window_id" @temp_repo "${rest%%/*}:"
             ;;
         *)

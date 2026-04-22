@@ -42,12 +42,6 @@ JSON=$(jq -n \
 write_state "$JSON"
 rm -f "$ACK_FILE"
 
-# Override tmux default-command to bash for this window so agent subprocesses
-# don't inherit nushell (which rejects && syntax in spawn commands)
-if [ -n "$TMUX_PANE" ]; then
-    tmux set-option -w -t "$TMUX_PANE" default-command "bash"
-fi
-
 # On resume, clean up stale state files from other sessions on this pane
 if [ "$SOURCE" = "resume" ]; then
     for f in "$STATE_DIR"/*.json; do

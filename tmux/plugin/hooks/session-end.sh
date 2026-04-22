@@ -22,10 +22,8 @@ get_tmux_env
 
 rm -f "$STATE_FILE" "$ACK_FILE"
 
-# Restore tmux default-command to global setting (nushell)
 # Reset window title to automatic-rename so the shell manages it again
 if [ -n "$TMUX_PANE" ]; then
-    tmux set-option -wu -t "$TMUX_PANE" default-command
     tmux set-option -w -t "$TMUX_PANE" automatic-rename on 2>/dev/null
     tmux set-option -wut "$TMUX_PANE" @title_source 2>/dev/null
 fi

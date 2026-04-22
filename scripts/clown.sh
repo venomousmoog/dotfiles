@@ -9,22 +9,26 @@
 #   clown.sh -i fbsource             # interactive in new tmux window
 #   clown.sh -i --no-tmux configerator  # interactive, no tmux
 #   clown.sh -b fbsource -p "do X"   # background via dashboard
-#   clown.sh --clean                  # remove inactive clones from ~/src/temp
+#   clown.sh --clean                  # remove inactive clones from ~/src/clown
 
 set -euo pipefail
 
-TEMP_BASE="$HOME/src/temp"
+TEMP_BASE="$HOME/src/clown"
 WORKSPACE_FILE="$HOME/src/monster.code-workspace"
 
 # --- Workspace file helpers ---
 add_to_workspace() {
     local dir="$1"
-    if [[ -f "$WORKSPACE_FILE" ]] && command -v jq &>/dev/null; then
-        local tmp
-        tmp=$(mktemp)
-        jq --arg path "$dir" '.folders += [{"path": $path}]' "$WORKSPACE_FILE" > "$tmp" && mv "$tmp" "$WORKSPACE_FILE"
-        echo "Added ${dir} to workspace."
+    command -v jq &>/dev/null || return 0
+    if [[ ! -f "$WORKSPACE_FILE" ]]; then
+        mkdir -p "$(dirname "$WORKSPACE_FILE")"
+        echo '{"folders": []}' > "$WORKSPACE_FILE"
+        echo "Created workspace file ${WORKSPACE_FILE}."
     fi
+    local tmp
+    tmp=$(mktemp)
+    jq --arg path "$dir" '.folders += [{"path": $path}]' "$WORKSPACE_FILE" > "$tmp" && mv "$tmp" "$WORKSPACE_FILE"
+    echo "Added ${dir} to workspace."
 }
 
 remove_from_workspace() {
@@ -127,7 +131,7 @@ while [[ $# -gt 0 ]]; do
             echo "  -i, --interactive   Interactive Claude session (default)"
             echo "  -b, --background    Background session via dashboard"
             echo "  --no-tmux           Don't create a new tmux window (interactive only)"
-            echo "  --clean             Remove inactive clones from ~/src/temp"
+            echo "  --clean             Remove inactive clones from ~/src/clown"
             echo ""
             echo "Extra args after -- are passed to claude/claude_wrapper."
             exit 0
@@ -228,12 +232,16 @@ WORKSPACE_FILE="${WORKSPACE_FILE}"
 
 add_to_workspace() {
     local dir="\$1"
-    if [[ -f "\$WORKSPACE_FILE" ]] && command -v jq &>/dev/null; then
-        local tmp
-        tmp=\$(mktemp)
-        jq --arg path "\$dir" '.folders += [{"path": \$path}]' "\$WORKSPACE_FILE" > "\$tmp" && mv "\$tmp" "\$WORKSPACE_FILE"
-        echo "Added \${dir} to workspace."
+    command -v jq &>/dev/null || return 0
+    if [[ ! -f "\$WORKSPACE_FILE" ]]; then
+        mkdir -p "\$(dirname "\$WORKSPACE_FILE")"
+        echo '{"folders": []}' > "\$WORKSPACE_FILE"
+        echo "Created workspace file \${WORKSPACE_FILE}."
     fi
+    local tmp
+    tmp=\$(mktemp)
+    jq --arg path "\$dir" '.folders += [{"path": \$path}]' "\$WORKSPACE_FILE" > "\$tmp" && mv "\$tmp" "\$WORKSPACE_FILE"
+    echo "Added \${dir} to workspace."
 }
 
 remove_from_workspace() {

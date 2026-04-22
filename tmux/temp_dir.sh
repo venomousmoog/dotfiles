@@ -1,10 +1,10 @@
 #!/bin/bash
-# Extracts the repo name (first dir component) under ~/src/temp/ from a path.
+# Extracts the repo name (first dir component) under ~/src/clown/ from a path.
 # Called by tmux window-status-format to show which temp repo a pane is in.
-# Outputs nothing if the path is not under ~/src/temp/.
+# Outputs nothing if the path is not under ~/src/clown/.
 case "$1" in
-    */src/temp/*)
-        rest="${1#*/src/temp/}"
+    */src/clown/*)
+        rest="${1#*/src/clown/}"
         printf '%s:' "${rest%%/*}"
         ;;
 esac
