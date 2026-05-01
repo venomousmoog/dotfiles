@@ -71,3 +71,29 @@ fi
 if [ ! -e "$HOME/.gitconfig.os" ] && [ -f "$DOTFILES_DIR/git/gitconfig.linux.meta" ]; then
     ln -s "$DOTFILES_DIR/git/gitconfig.linux.meta" "$HOME/.gitconfig.os"
 fi
+
+# On an OnDemand host (<id>.od.fbinfra.net), seed each enlistment root's
+# .vscode/markdown-styles.css so the docs/ stylesheet renders previews
+# regardless of which checkout the editor is opened against.
+case "$(hostname -f 2>/dev/null || hostname)" in
+    *.od.fbinfra.net)
+        _md_src="$DOTFILES_DIR/docs/markdown-styles.css"
+        if [ -f "$_md_src" ]; then
+            for _root in \
+                /data/sandcastle/boxes/fbsource \
+                /data/sandcastle/boxes/configerator \
+                /data/sandcastle/boxes/www \
+                "$HOME/fbsource" \
+                "$HOME/configerator" \
+                "$HOME/www"
+            do
+                if [ -d "$_root" ]; then
+                    mkdir -p "$_root/.vscode"
+                    cp "$_md_src" "$_root/.vscode/markdown-styles.css"
+                fi
+            done
+            unset _root
+        fi
+        unset _md_src
+        ;;
+esac

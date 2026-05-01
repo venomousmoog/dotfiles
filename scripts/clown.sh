@@ -15,8 +15,26 @@ set -euo pipefail
 
 TEMP_BASE="$HOME/src/clown"
 WORKSPACE_FILE="$HOME/src/monster.code-workspace"
+MARKDOWN_STYLES_SRC="$HOME/src/dotfiles/docs/markdown-styles.css"
 
 # --- Workspace file helpers ---
+prune_dead_workspace_paths() {
+    [[ -f "$WORKSPACE_FILE" ]] || return 0
+    command -v jq &>/dev/null || return 0
+    local folders dead=() path tmp
+    folders=$(jq -r '.folders[].path' "$WORKSPACE_FILE" 2>/dev/null || true)
+    while IFS= read -r path; do
+        [[ -n "$path" ]] || continue
+        [[ -e "$path" ]] || dead+=("$path")
+    done <<< "$folders"
+    [[ ${#dead[@]} -eq 0 ]] && return 0
+    tmp=$(mktemp)
+    jq --argjson dead "$(printf '%s\n' "${dead[@]}" | jq -R . | jq -s .)" \
+        '.folders |= map(select(.path as $p | $dead | index($p) | not))' \
+        "$WORKSPACE_FILE" > "$tmp" && mv "$tmp" "$WORKSPACE_FILE"
+    echo "Pruned ${#dead[@]} dead path(s) from workspace."
+}
+
 add_to_workspace() {
     local dir="$1"
     command -v jq &>/dev/null || return 0
@@ -29,6 +47,7 @@ add_to_workspace() {
     tmp=$(mktemp)
     jq --arg path "$dir" '.folders += [{"path": $path}]' "$WORKSPACE_FILE" > "$tmp" && mv "$tmp" "$WORKSPACE_FILE"
     echo "Added ${dir} to workspace."
+    prune_dead_workspace_paths
 }
 
 remove_from_workspace() {
@@ -38,6 +57,15 @@ remove_from_workspace() {
         tmp=$(mktemp)
         jq --arg path "$dir" '.folders |= map(select(.path != $path))' "$WORKSPACE_FILE" > "$tmp" && mv "$tmp" "$WORKSPACE_FILE"
     fi
+    prune_dead_workspace_paths
+}
+
+# Seed a fresh clone with .vscode/markdown-styles.css copied from dotfiles.
+seed_vscode_markdown_styles() {
+    local dir="$1"
+    [[ -f "$MARKDOWN_STYLES_SRC" ]] || return 0
+    mkdir -p "${dir}/.vscode"
+    cp "$MARKDOWN_STYLES_SRC" "${dir}/.vscode/markdown-styles.css"
 }
 
 # --- Clean mode: remove inactive clones ---
@@ -229,6 +257,24 @@ CLONE_DIR="${CLONE_DIR}"
 SESSION_NAME="${SESSION_NAME}"
 REPO_TYPE="${REPO_TYPE}"
 WORKSPACE_FILE="${WORKSPACE_FILE}"
+MARKDOWN_STYLES_SRC="${MARKDOWN_STYLES_SRC}"
+
+prune_dead_workspace_paths() {
+    [[ -f "\$WORKSPACE_FILE" ]] || return 0
+    command -v jq &>/dev/null || return 0
+    local folders dead=() path tmp
+    folders=\$(jq -r '.folders[].path' "\$WORKSPACE_FILE" 2>/dev/null || true)
+    while IFS= read -r path; do
+        [[ -n "\$path" ]] || continue
+        [[ -e "\$path" ]] || dead+=("\$path")
+    done <<< "\$folders"
+    [[ \${#dead[@]} -eq 0 ]] && return 0
+    tmp=\$(mktemp)
+    jq --argjson dead "\$(printf '%s\n' "\${dead[@]}" | jq -R . | jq -s .)" \\
+        '.folders |= map(select(.path as \$p | \$dead | index(\$p) | not))' \\
+        "\$WORKSPACE_FILE" > "\$tmp" && mv "\$tmp" "\$WORKSPACE_FILE"
+    echo "Pruned \${#dead[@]} dead path(s) from workspace."
+}
 
 add_to_workspace() {
     local dir="\$1"
@@ -242,6 +288,7 @@ add_to_workspace() {
     tmp=\$(mktemp)
     jq --arg path "\$dir" '.folders += [{"path": \$path}]' "\$WORKSPACE_FILE" > "\$tmp" && mv "\$tmp" "\$WORKSPACE_FILE"
     echo "Added \${dir} to workspace."
+    prune_dead_workspace_paths
 }
 
 remove_from_workspace() {
@@ -251,6 +298,14 @@ remove_from_workspace() {
         tmp=\$(mktemp)
         jq --arg path "\$dir" '.folders |= map(select(.path != \$path))' "\$WORKSPACE_FILE" > "\$tmp" && mv "\$tmp" "\$WORKSPACE_FILE"
     fi
+    prune_dead_workspace_paths
+}
+
+seed_vscode_markdown_styles() {
+    local dir="\$1"
+    [[ -f "\$MARKDOWN_STYLES_SRC" ]] || return 0
+    mkdir -p "\${dir}/.vscode"
+    cp "\$MARKDOWN_STYLES_SRC" "\${dir}/.vscode/markdown-styles.css"
 }
 
 finalize() {
@@ -296,6 +351,7 @@ trap finalize EXIT INT TERM
 
 echo "Creating enlistment: fbclone \${REPO_TYPE} \${CLONE_DIR}"
 fbclone "\${REPO_TYPE}" "\${CLONE_DIR}"
+seed_vscode_markdown_styles "\${CLONE_DIR}"
 add_to_workspace "\${CLONE_DIR}"
 
 cd "\$CLONE_DIR"
@@ -314,6 +370,7 @@ elif [[ "$MODE" == "background" ]]; then
     # Background mode: clone here, then launch claude_wrapper
     echo "Creating enlistment: fbclone $REPO_TYPE $CLONE_DIR"
     fbclone "$REPO_TYPE" "$CLONE_DIR"
+    seed_vscode_markdown_styles "$CLONE_DIR"
     add_to_workspace "$CLONE_DIR"
 
     ARGS_FILE="/tmp/claude_session_args_${SESSION_NAME}.txt"
@@ -345,6 +402,7 @@ else
     # Interactive mode in current terminal (--no-tmux or no tmux session)
     echo "Creating enlistment: fbclone $REPO_TYPE $CLONE_DIR"
     fbclone "$REPO_TYPE" "$CLONE_DIR"
+    seed_vscode_markdown_styles "$CLONE_DIR"
     add_to_workspace "$CLONE_DIR"
 
     trap finalize EXIT INT TERM

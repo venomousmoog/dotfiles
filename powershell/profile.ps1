@@ -380,6 +380,55 @@ if ($env:TERM_PROGRAM -eq 'vscode') {
     $env:EDITOR = 'nano'
 }
 
+# Run a command with the current Meta fwdproxy env vars set, restoring prior
+# values afterward. Usage: with-fwdproxy az login
+function with-fwdproxy {
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory = $true, Position = 0)]
+        [string]$Command,
+        [Parameter(ValueFromRemainingArguments = $true)]
+        [string[]]$Arguments
+    )
+
+    $configOutput = & fwdproxy-config curl --format=sh
+    if ($LASTEXITCODE -ne 0) {
+        Write-Error 'fwdproxy-config failed'
+        return
+    }
+
+    $vars = [ordered]@{}
+    foreach ($line in $configOutput) {
+        if ($line -match '^\s*(?:export\s+)?([A-Za-z_][A-Za-z0-9_]*)=(.*)$') {
+            $value = $matches[2]
+            if ($value -match '^"(.*)"$' -or $value -match "^'(.*)'$") {
+                $value = $matches[1]
+            }
+            $vars[$matches[1]] = $value
+        }
+    }
+
+    $previous = @{}
+    foreach ($key in $vars.Keys) {
+        $previous[$key] = [Environment]::GetEnvironmentVariable($key)
+    }
+
+    try {
+        foreach ($key in $vars.Keys) {
+            Set-Item -Path "env:$key" -Value $vars[$key]
+        }
+        & $Command @Arguments
+    } finally {
+        foreach ($key in $previous.Keys) {
+            if ($null -eq $previous[$key]) {
+                Remove-Item -Path "env:$key" -ErrorAction SilentlyContinue
+            } else {
+                Set-Item -Path "env:$key" -Value $previous[$key]
+            }
+        }
+    }
+}
+
 
 $originalPromptFunction = $function:prompt
 function prompt {

@@ -36,6 +36,10 @@ def main [--dry-run] {
         # --- vscode ---
         # { source: "vscode/settings.json", method: symlink, target: { linux: "~/.config/Code - Insiders/User/settings.json", macos: "~/Library/Application Support/Code - Insiders/User/settings.json", windows: "~/AppData/Roaming/Code - Insiders/User/settings.json" } }
 
+        # --- markdown styles (single source of truth in docs/) ---
+        { source: "docs/markdown-styles.css", method: symlink, target: "~/markdown-styles.css" }
+        { source: "docs/markdown-styles.css", method: symlink, target: "~/.vscode/markdown-styles.css" }
+
         # --- vsc-meta ---
         # { source: "vsc-meta/settings.json", method: symlink, target: { linux: "~/.config/VS Code @ FB - Dev/User/settings.json", macos: "~/Library/Application Support/VS Code @ FB - Dev/User/settings.json", windows: "~/AppData/Roaming/VS Code @ FB - Dev/User/settings.json" } }
 
