@@ -6,6 +6,7 @@
 #   - dotsync conflict snapshots (~/.dotsync/conflicts)
 #   - Stale /tmp PAR unpack dirs from dead PIDs
 #   - Eden GC, stale XAR/sandbox mounts, hg/sl backups, etc.
+#   - System caches via sudo (/var/cache/hgcache, /var/log/below, /var/cache/casd)
 #
 # Usage:
 #   disk-cleanup.sh              # run cleanup
@@ -212,12 +213,20 @@ if command -v eden &>/dev/null; then
     if $DRY_RUN; then
         echo "  [dry-run] eden doctor (would auto-fix)"
         echo "  [dry-run] eden gc"
+        echo "  [dry-run] eden du --clean (per checkout)"
     else
         echo ">>> eden doctor (auto-fix)..."
         eden doctor 2>&1 | tail -10
         echo ""
         echo ">>> eden gc..."
         eden gc 2>&1 | tail -5
+        echo ""
+        echo ">>> eden du --clean (per checkout)..."
+        while IFS= read -r mount; do
+            [ -z "$mount" ] && continue
+            echo ">> $mount"
+            eden du --clean "$mount" 2>&1 | tail -10
+        done < <(eden list 2>/dev/null)
     fi
 
     echo ""
@@ -278,12 +287,14 @@ for d in \
     "$HOME/.cache/pip" \
     "$HOME/.cache/buck" \
     "$HOME/.cache/clangd" \
+    "$HOME/.cache/cppls" \
     "$HOME/.cache/pyright" \
     "$HOME/.cache/pylsp" \
     "$HOME/.cache/bazel" \
     "$HOME/.cargo/registry/cache" \
     "$HOME/.npm/_cacache" \
     "$HOME/.local/share/Trash" \
+    "$HOME/.torch/iopath_cache" \
 ; do
     if [ -d "$d" ]; then
         echo "  $d: $(human_size "$d")"
@@ -340,6 +351,57 @@ if [ -d "$HOME/fbpkgs" ]; then
     else
         echo "  All packages <=14 days old, keeping."
     fi
+fi
+
+# ---- 13. System caches (sudo) -----------------------------------------------
+# These live outside $HOME and require sudo. They share blobs with dotslash
+# (casd) and back hg/sl pulls (hgcache). Skipped if passwordless sudo is not
+# available so the script remains usable in non-Meta environments.
+section "System caches (sudo)"
+if sudo -n true 2>/dev/null; then
+    # /var/cache/hgcache: Mercurial server cache. Re-fetched on next sl pull.
+    if [ -d /var/cache/hgcache ]; then
+        echo "  /var/cache/hgcache: $(sudo du -sh /var/cache/hgcache 2>/dev/null | cut -f1)"
+        run "sudo find /var/cache/hgcache -mindepth 1 -maxdepth 1 -exec rm -rf {} +"
+    fi
+
+    # /var/log/below: keep the last 3 days of telemetry, drop older data/index files.
+    if [ -d /var/log/below/store ]; then
+        echo "  /var/log/below: $(sudo du -sh /var/log/below 2>/dev/null | cut -f1)"
+        run "sudo find /var/log/below/store -maxdepth 1 -mtime +3 \\( -name 'data_*' -o -name 'index_*' \\) -delete"
+    fi
+
+    # /var/cache/casd/keyed_blake3: CAS daemon blob store. Often hardlinked
+    # from ~/.cache/dotslash, which is why wiping dotslash alone reclaims little.
+    if [ -d /var/cache/casd/keyed_blake3 ]; then
+        echo "  /var/cache/casd/keyed_blake3: $(sudo du -sh /var/cache/casd/keyed_blake3 2>/dev/null | cut -f1)"
+        run "sudo find /var/cache/casd/keyed_blake3 -mindepth 1 -maxdepth 1 -exec rm -rf {} +"
+    fi
+else
+    echo "  Skipped: passwordless sudo not available."
+fi
+
+# ---- 14. arc fix --hard in each Eden enlistment -----------------------------
+# `arc fix --hard` performs a full environment reset for the repo: kills
+# stragglers, blows away per-repo caches, and resyncs build state. Reclaims
+# space in buck-out, watchman, and other per-repo state dirs that nothing else
+# in this script touches.
+section "arc fix --hard per Eden enlistment"
+if command -v eden &>/dev/null && command -v arc &>/dev/null; then
+    while IFS= read -r enlistment; do
+        [ -z "$enlistment" ] && continue
+        [ -d "$enlistment" ] || continue
+        echo ""
+        echo ">>> $enlistment"
+        if $DRY_RUN; then
+            echo "  [dry-run] (cd '$enlistment' && arc fix --hard)"
+        else
+            (cd "$enlistment" && arc fix --hard 2>&1 | tail -20) \
+                || echo "  (arc fix --hard failed for $enlistment)"
+        fi
+    done < <(eden list 2>/dev/null)
+else
+    echo "  eden or arc not installed, skipping."
 fi
 
 # ---- summary ----------------------------------------------------------------
