@@ -207,6 +207,34 @@ for sandbox in /tmp/sandbox_*/; do
 done
 echo "  Cleaned $SANDBOX_COUNT stale sandbox dirs."
 
+# ---- 7a. Orphaned antlir2 btrfs subvolumes (must run before eden du --clean) -
+# antlir2 stores build outputs as btrfs subvolumes under
+# `<scratch>/edenfsZredirectionsZantlir2-out/subvols/<hash>`. `eden du --clean`
+# uses plain `rm -rf` and can't delete those — it errors with "Failed to
+# recursively remove ...antlir2-out (Read-only file system)" and short-circuits
+# the rest of the orphan sweep, leaving 100s of GB of orphans on disk. Strip
+# the antlir2 subvols first with `btrfs subvolume delete` so eden's pass below
+# runs end-to-end.
+section "Orphaned antlir2 btrfs subvolumes"
+SCRATCH="/data/users/ddriver/scratch"
+if [ -d "$SCRATCH" ] && sudo -n true 2>/dev/null; then
+    DELETED=0
+    while IFS= read -r subvols_dir; do
+        [ -d "$subvols_dir" ] || continue
+        for subvol in "$subvols_dir"/*/; do
+            [ -d "$subvol" ] || continue
+            subvol="${subvol%/}"
+            if sudo btrfs subvolume show "$subvol" &>/dev/null; then
+                run "sudo btrfs subvolume delete '$subvol' >/dev/null"
+                DELETED=$((DELETED + 1))
+            fi
+        done
+    done < <(find "$SCRATCH" -maxdepth 3 -type d -name subvols -path '*antlir2-out*' 2>/dev/null)
+    echo "  Deleted $DELETED antlir2 subvolume(s)."
+else
+    echo "  Skipped: no $SCRATCH or no passwordless sudo."
+fi
+
 # ---- 7. Eden doctor + GC ----------------------------------------------------
 section "Eden doctor + GC"
 if command -v eden &>/dev/null; then
@@ -402,6 +430,74 @@ if command -v eden &>/dev/null && command -v arc &>/dev/null; then
     done < <(eden list 2>/dev/null)
 else
     echo "  eden or arc not installed, skipping."
+fi
+
+# ---- 15. btrfs metadata balance (sudo) --------------------------------------
+# After all the rm activity above, btrfs may have lots of partially-empty
+# metadata block groups (allocated capacity that can't be used for data).
+# `balance -musage=50` rewrites metadata block groups <50% full, releasing
+# the allocation back to the pool. Slow but reclaims space nothing else can.
+section "btrfs metadata balance (sudo)"
+if [ "$(stat -f -c %T / 2>/dev/null)" = "btrfs" ] && sudo -n true 2>/dev/null; then
+    echo "  Before:"
+    sudo btrfs filesystem df / 2>/dev/null | grep -E '^(Data|Metadata)'
+    if $DRY_RUN; then
+        echo "  [dry-run] sudo btrfs balance start -musage=50 /"
+    else
+        echo "  Running balance (may take several minutes)..."
+        sudo btrfs balance start -musage=50 / 2>&1 | tail -5 || true
+        echo "  After:"
+        sudo btrfs filesystem df / 2>/dev/null | grep -E '^(Data|Metadata)'
+    fi
+else
+    echo "  Skipped: not btrfs or no passwordless sudo."
+fi
+
+# ---- 16. Orphaned Eden backing repos ----------------------------------------
+# Backing repos are the actual git/hg stores under each checkout's
+# `backing_repo` path (typically /data/users/$USER/.eden-backing-repos/<repo>).
+# They're shared across checkouts of the same repo, so they only become
+# orphaned when *every* checkout of that repo is removed. When that happens
+# they can be 50-100+ GB of dead weight. Detect and report (don't auto-delete:
+# re-cloning a backing repo is hours of pulls).
+section "Orphaned Eden backing repos"
+if command -v eden &>/dev/null; then
+    declare -A ACTIVE_BACKING
+    BACKING_PARENT=""
+    while IFS= read -r mount; do
+        [ -z "$mount" ] && continue
+        repo=$(eden info "$mount" 2>/dev/null | grep '"backing_repo"' | sed -E 's/.*"backing_repo": "([^"]+)".*/\1/')
+        if [ -n "$repo" ]; then
+            ACTIVE_BACKING["$repo"]=1
+            [ -z "$BACKING_PARENT" ] && BACKING_PARENT=$(dirname "$repo")
+        fi
+    done < <(eden list 2>/dev/null)
+
+    if [ -z "$BACKING_PARENT" ] || [ ! -d "$BACKING_PARENT" ]; then
+        echo "  Could not locate backing-repos dir from active checkouts, skipping."
+    else
+        echo "  Backing-repos dir: $BACKING_PARENT"
+        ORPHAN_COUNT=0
+        for d in "$BACKING_PARENT"/*/; do
+            [ -d "$d" ] || continue
+            d_clean="${d%/}"
+            if [ -z "${ACTIVE_BACKING[$d_clean]:-}" ]; then
+                sz=$(human_size "$d_clean")
+                echo "  ORPHAN: $d_clean ($sz)"
+                ORPHAN_COUNT=$((ORPHAN_COUNT + 1))
+            fi
+        done
+        if [ "$ORPHAN_COUNT" -eq 0 ]; then
+            echo "  No orphaned backing repos. ($(ls -1 "$BACKING_PARENT" 2>/dev/null | wc -l) repos, all in use.)"
+        else
+            echo ""
+            echo "  Found $ORPHAN_COUNT orphan(s). Not auto-removed (re-cloning is expensive)."
+            echo "  To remove manually after confirming nothing else uses them:"
+            echo "    rm -rf <path>"
+        fi
+    fi
+else
+    echo "  eden not installed, skipping."
 fi
 
 # ---- summary ----------------------------------------------------------------

@@ -110,8 +110,6 @@ function Test-CommandExists {
 
 # configure bat styles and point less to it
 if (Test-CommandExists 'bat') {
-    $env:BAT_THEME = 'zenburn'
-    $env:BAT_STYLE = 'grid,numbers'
     Set-Alias -Name less -Value bat -Option AllScope
 }
 
@@ -449,3 +447,21 @@ if (Get-Command bat -ErrorAction SilentlyContinue) {
 }
 
 $env:CLAUDE_CODE_VERSION_OVERRIDE="latest"
+
+function myclaw-jet {
+    $old = $env:MYCLAW_HOME
+    $env:MYCLAW_HOME = "$HOME\.myclaw-jet"
+    try { myclaw @args } finally { $env:MYCLAW_HOME = $old }
+}
+
+function myclaw-rodan {
+    $old = $env:MYCLAW_HOME
+    $env:MYCLAW_HOME = "$HOME\.myclaw-rodan"
+    try { myclaw @args } finally { $env:MYCLAW_HOME = $old }
+}
+
+function myclaw-king {
+    $old = $env:MYCLAW_HOME
+    $env:MYCLAW_HOME = "$HOME\.myclaw-king"
+    try { myclaw @args } finally { $env:MYCLAW_HOME = $old }
+}
