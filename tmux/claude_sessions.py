@@ -493,33 +493,8 @@ def main() -> None:
 
     set_window_options(window_icons)
 
-    # --- Manage multi-line status for other sessions ---
-    # Group agents by session, excluding the current session.
-    # Include all other sessions, even those without any Claude agents.
-    other_session_agents: dict[str, dict[int, list[tuple[str, str]]]] = {}
-    for (sess, win_idx), agents in agents_by_session_window.items():
-        if sess == current_session:
-            continue
-        if sess not in other_session_agents:
-            other_session_agents[sess] = {}
-        other_session_agents[sess][win_idx] = agents
-    # Ensure all other sessions appear, even without agents
-    for w in all_windows:
-        sess = w["session_name"]
-        if sess != current_session and sess not in other_session_agents:
-            other_session_agents[sess] = {}
-
-    # --- Compute dynamic prefix width from all session names ---
-    # Prefix format: "  <host> <session>" (2 leading spaces + host + space + session)
-    # or for primary: "<icon> <host> <session>" (icon is 1 display char + 1 space)
-    # Both cases use 2 leading characters, so width is the same.
-    all_session_names = {current_session} | set(other_session_agents.keys())
-    prefix_width = max(
-        len(f"  {hostname} {sess_name}")
-        for sess_name in all_session_names
-    )
-    # Add 1 char trailing padding so │ isn't jammed against the name
-    prefix_width += 1
+    # --- Compute prefix width from current session name ---
+    prefix_width = len(f"  {hostname} {current_session}") + 1
 
     # --- Set status-left (primary line prefix) dynamically ---
     primary_prefix = f"{STATUS_LEFT_ICON} {hostname} {current_session}"
@@ -554,7 +529,7 @@ def main() -> None:
             except OSError:
                 pass
 
-    set_status_lines(current_session, hostname, other_session_agents, all_windows, prefix_width)
+    set_status_lines(current_session, hostname, {}, all_windows, prefix_width)
 
 
 if __name__ == "__main__":

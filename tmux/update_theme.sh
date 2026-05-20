@@ -46,8 +46,15 @@ update_theme() {
     # Note: window title sync is triggered by the Stop hook, not status-right
     $TMUX_BIN set-option -g status-right "#(~/src/dotfiles/tmux/sync_temp_repos.sh)#(python3 ~/src/dotfiles/tmux/claude_sessions.py)"
 
-    # Bind ctrl-b w to show Claude icons in choose-tree view
-    $TMUX_BIN bind-key w choose-tree -wf '#{?#{m:__tun_ctrl,#{session_name}},0,1}' -F "#{?#{session_format},#[bold]#{?#{@host},#{@host},#h}#[nobold],#{@claude}#[italics]#{@temp_repo}#[noitalics]#{window_name}#{window_flags}}"
+    # Bind ctrl-b w to show current session's windows only
+    # Uses a temp config file because \; in shell args gets parsed as a
+    # top-level command separator instead of part of the binding
+    local tmp=$(mktemp)
+    cat > "$tmp" << 'BIND_CONF'
+bind-key w set -gF @_filter_sess '#{session_name}' \; choose-tree -wf '#{==:#{session_name},#{@_filter_sess}}' -F "#{@claude}#[italics]#{@temp_repo}#[noitalics]#{window_name}#{window_flags}"
+BIND_CONF
+    $TMUX_BIN source-file "$tmp"
+    rm -f "$tmp"
 
     # Mouse click on secondary session status lines: switch to that session:window
     # User ranges in status-format[N] put the argument in #{mouse_status_range}

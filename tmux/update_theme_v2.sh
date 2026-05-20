@@ -30,7 +30,12 @@ update_theme() {
     # Use the tunnel-aware v2 script
     $TMUX_BIN set-option -g status-right "#(python3 ~/src/dotfiles/tmux/claude_sessions_v2.py)"
 
-    $TMUX_BIN bind-key w choose-tree -wf '#{?#{m:__tun_ctrl,#{session_name}},0,1}' -F "#{?#{session_format},#[bold]#{?#{@host},#{@host},#h}#[nobold],#{window_index}:#{@claude}#{window_name}#{window_flags}}"
+    local tmp_bind=$(mktemp)
+    cat > "$tmp_bind" << 'BIND_CONF'
+bind-key w set -gF @_filter_sess '#{session_name}' \; choose-tree -wf '#{==:#{session_name},#{@_filter_sess}}' -F "#{@claude}#[italics]#{@temp_repo}#[noitalics]#{window_name}#{window_flags}"
+BIND_CONF
+    $TMUX_BIN source-file "$tmp_bind"
+    rm -f "$tmp_bind"
 
     $TMUX_BIN bind-key -n MouseDown1Status if-shell -F '#{!=:#{mouse_status_line},0}' \
         'run-shell "tmux switch-client -t \"#{mouse_status_range}\""' \
