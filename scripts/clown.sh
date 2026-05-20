@@ -9,6 +9,7 @@
 #   clown.sh -i fbsource             # interactive in new tmux window
 #   clown.sh -i --no-tmux configerator  # interactive, no tmux
 #   clown.sh -b fbsource -p "do X"   # background via dashboard
+#   clown.sh --ac fbsource            # AC-managed agent (opus)
 #   clown.sh --clean                  # remove inactive clones from ~/src/clown
 
 set -euo pipefail
@@ -68,6 +69,25 @@ seed_vscode_markdown_styles() {
     cp "$MARKDOWN_STYLES_SRC" "${dir}/.vscode/markdown-styles.css"
 }
 
+# --- Agent name generator for AC mode ---
+generate_agent_name() {
+    local adjectives=(
+        cosmic blazing sneaky fuzzy turbo
+        mighty phantom groovy wicked stellar
+        atomic nimble fierce quirky radical
+        jolly mystic dapper witty crafty
+    )
+    local nouns=(
+        kraken phoenix yeti dragon panda
+        falcon narwhal badger wizard goblin
+        sphinx manticore griffin chimera hydra
+        raven jackal panther condor viper
+    )
+    local adj=${adjectives[$((RANDOM % ${#adjectives[@]}))]}
+    local noun=${nouns[$((RANDOM % ${#nouns[@]}))]}
+    echo "${adj}-${noun}"
+}
+
 # --- Clean mode: remove inactive clones ---
 clean_clones() {
     mkdir -p "$TEMP_BASE"
@@ -117,6 +137,7 @@ clean_clones() {
 # --- Parse options ---
 MODE="interactive"
 USE_TMUX=true
+USE_AC=false
 REPO_TYPE=""
 CLAUDE_ARGS=()
 
@@ -135,6 +156,10 @@ while [[ $# -gt 0 ]]; do
             ;;
         --no-tmux)
             USE_TMUX=false
+            shift
+            ;;
+        --ac)
+            USE_AC=true
             shift
             ;;
         fbsource|fbs|f)
@@ -158,6 +183,7 @@ while [[ $# -gt 0 ]]; do
             echo "Options:"
             echo "  -i, --interactive   Interactive Claude session (default)"
             echo "  -b, --background    Background session via dashboard"
+            echo "  --ac                Use Agent Conductor to manage the agent (opus model)"
             echo "  --no-tmux           Don't create a new tmux window (interactive only)"
             echo "  --clean             Remove inactive clones from ~/src/clown"
             echo ""
@@ -237,7 +263,57 @@ finalize() {
 }
 
 # --- Launch ---
-if [[ "$USE_TMUX" == true && -n "${TMUX:-}" && "$MODE" == "interactive" ]]; then
+if [[ "$USE_AC" == true ]]; then
+    # AC mode: create fbclone, then hand off to Agent Conductor
+    echo "Creating enlistment: fbclone $REPO_TYPE $CLONE_DIR"
+    fbclone "$REPO_TYPE" "$CLONE_DIR"
+    seed_vscode_markdown_styles "$CLONE_DIR"
+    add_to_workspace "$CLONE_DIR"
+
+    CLEANUP_SCRIPT="$(cd "$(dirname "$0")" && pwd)/clown-cleanup.sh"
+    mkdir -p "${CLONE_DIR}/.claude"
+    cat > "${CLONE_DIR}/.claude/settings.json" <<SETTINGS_EOF
+{
+  "hooks": {
+    "SessionEnd": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "${CLEANUP_SCRIPT}",
+            "timeout": 120
+          }
+        ]
+      }
+    ]
+  }
+}
+SETTINGS_EOF
+
+    AGENT_NAME=$(generate_agent_name)
+
+    echo ""
+    echo "Launching AC agent '${AGENT_NAME}' in ${CLONE_DIR}"
+    echo "  Repo:  ${REPO_TYPE}"
+    echo "  Model: opus"
+    echo ""
+
+    acd agent create \
+        --mode claude \
+        --model opus \
+        --dir "$CLONE_DIR" \
+        --name "$AGENT_NAME" \
+        --fbclone-path "$CLONE_DIR" \
+        --skip-permissions=true \
+        -- --dangerously-enable-internet-mode "${CLAUDE_ARGS[@]:+"${CLAUDE_ARGS[@]}"}"
+
+    echo ""
+    echo "Agent '${AGENT_NAME}' created."
+    echo "  acd agent show ${AGENT_NAME}"
+    echo "  acd agent output -f ${AGENT_NAME}"
+    echo "  acd agent prompt ${AGENT_NAME} \"your message\""
+
+elif [[ "$USE_TMUX" == true && -n "${TMUX:-}" && "$MODE" == "interactive" ]]; then
     # Interactive tmux mode: open window immediately so caller's terminal is free.
     # The wrapper handles fbclone + claude + finalize entirely in the new window.
     WRAPPER="/tmp/claude_session_wrapper_${SESSION_NAME}.sh"
