@@ -11,6 +11,7 @@
 #   clown.sh -b fbsource -p "do X"   # background via dashboard
 #   clown.sh --ac fbsource            # AC-managed agent (opus)
 #   clown.sh --clean                  # remove inactive clones from ~/src/clown
+#   clown.sh --clean --dry-run         # preview what --clean would remove
 
 set -euo pipefail
 
@@ -90,13 +91,26 @@ generate_agent_name() {
 
 # --- Clean mode: remove inactive clones ---
 clean_clones() {
+    local dry_run="${1:-false}"
     mkdir -p "$TEMP_BASE"
     local removed=0
     local kept=0
     local total=0
 
-    echo "Scanning ${TEMP_BASE} for inactive clones..."
+    if [[ "$dry_run" == true ]]; then
+        echo "Scanning ${TEMP_BASE} for inactive clones (dry run)..."
+    else
+        echo "Scanning ${TEMP_BASE} for inactive clones..."
+    fi
     echo ""
+
+    # Collect active AC agent clone paths (once, not per-directory)
+    local ac_paths=""
+    if command -v acd &>/dev/null; then
+        ac_paths=$(acd agent list --json 2>/dev/null \
+            | jq -r '.hosts[].agents[] | select(.alive) | .fbclonePath // empty' 2>/dev/null \
+            || true)
+    fi
 
     for dir in "${TEMP_BASE}"/*/; do
         [[ -d "$dir" ]] || continue
@@ -105,32 +119,61 @@ clean_clones() {
         name=$(basename "$dir")
         local real_dir
         real_dir=$(realpath "$dir")
+        local active=false
+        local reason=""
 
         # Check if any claude process has this directory as its cwd
-        local active=false
         while IFS= read -r pid; do
             [[ -n "$pid" ]] || continue
             local proc_cwd
             proc_cwd=$(readlink "/proc/${pid}/cwd" 2>/dev/null || true)
             if [[ "$proc_cwd" == "$real_dir" || "$proc_cwd" == "${real_dir}/"* ]]; then
                 active=true
+                reason="claude process"
                 break
             fi
         done < <(pgrep -f "claude" 2>/dev/null || true)
 
+        # Check if the session wrapper script is still running (catches sessions
+        # in finalize where the cwd has changed to $HOME)
+        if [[ "$active" != true ]] && pgrep -f "claude_session_wrapper_${name}[.]sh" &>/dev/null; then
+            active=true
+            reason="session wrapper"
+        fi
+
+        # Check if an AC agent is using this clone
+        if [[ "$active" != true && -n "$ac_paths" ]]; then
+            while IFS= read -r ac_path; do
+                [[ -n "$ac_path" ]] || continue
+                if [[ "$ac_path" == "$real_dir" ]]; then
+                    active=true
+                    reason="AC agent"
+                    break
+                fi
+            done <<< "$ac_paths"
+        fi
+
         if [[ "$active" == true ]]; then
-            echo "  ACTIVE  ${name}  (claude process using ${dir})"
+            echo "  ACTIVE    ${name}  (${reason})"
             kept=$((kept + 1))
         else
-            echo "  INACTIVE  ${name}  — removing..."
-            remove_from_workspace "${dir%/}"
-            eden rm --yes "$dir" 2>/dev/null || rm -rf "$dir"
+            if [[ "$dry_run" == true ]]; then
+                echo "  INACTIVE  ${name}  — would remove"
+            else
+                echo "  INACTIVE  ${name}  — removing..."
+                remove_from_workspace "${dir%/}"
+                eden rm --yes "$dir" 2>/dev/null || rm -rf "$dir"
+            fi
             removed=$((removed + 1))
         fi
     done
 
     echo ""
-    echo "Done. ${removed} removed, ${kept} kept (${total} total)."
+    if [[ "$dry_run" == true ]]; then
+        echo "Dry run: ${removed} would be removed, ${kept} active (${total} total)."
+    else
+        echo "Done. ${removed} removed, ${kept} kept (${total} total)."
+    fi
     exit 0
 }
 
@@ -141,10 +184,17 @@ USE_AC=false
 REPO_TYPE=""
 CLAUDE_ARGS=()
 
+CLEAN_DRY_RUN=false
+
 while [[ $# -gt 0 ]]; do
     case "$1" in
         --clean)
-            clean_clones
+            shift
+            if [[ "${1:-}" == "--dry-run" ]]; then
+                CLEAN_DRY_RUN=true
+                shift
+            fi
+            clean_clones "$CLEAN_DRY_RUN"
             ;;
         -b|--background|-bg)
             MODE="background"
@@ -186,6 +236,7 @@ while [[ $# -gt 0 ]]; do
             echo "  --ac                Use Agent Conductor to manage the agent (opus model)"
             echo "  --no-tmux           Don't create a new tmux window (interactive only)"
             echo "  --clean             Remove inactive clones from ~/src/clown"
+            echo "  --clean --dry-run   Show what --clean would do without removing"
             echo ""
             echo "Extra args after -- are passed to claude/claude_wrapper."
             exit 0
