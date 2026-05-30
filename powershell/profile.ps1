@@ -84,6 +84,7 @@ if ($IsMacOS) {
 if ($IsLinux) {
     Add-To-Path '/packages/adb/latest/'
     Add-To-Path "$($dotfilesPath)/scripts"
+    Add-To-Path ~/.agent-conductor/default/bin
 }
 
 

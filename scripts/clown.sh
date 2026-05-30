@@ -267,6 +267,12 @@ SESSION_NAME="${PREFIX}${N}"
 
 # --- Finalize function (used by non-tmux modes and embedded in tmux wrapper) ---
 finalize() {
+    # Skip if the SessionEnd hook already handled cleanup
+    if [[ -f "/tmp/.clown-handled-${SESSION_NAME}" ]]; then
+        rm -f "/tmp/.clown-handled-${SESSION_NAME}"
+        return
+    fi
+
     echo ""
     echo "Finalizing session ${SESSION_NAME}..."
 
@@ -320,26 +326,6 @@ if [[ "$USE_AC" == true ]]; then
     fbclone "$REPO_TYPE" "$CLONE_DIR"
     seed_vscode_markdown_styles "$CLONE_DIR"
     add_to_workspace "$CLONE_DIR"
-
-    CLEANUP_SCRIPT="$(cd "$(dirname "$0")" && pwd)/clown-cleanup.sh"
-    mkdir -p "${CLONE_DIR}/.claude"
-    cat > "${CLONE_DIR}/.claude/settings.json" <<SETTINGS_EOF
-{
-  "hooks": {
-    "SessionEnd": [
-      {
-        "hooks": [
-          {
-            "type": "command",
-            "command": "${CLEANUP_SCRIPT}",
-            "timeout": 120
-          }
-        ]
-      }
-    ]
-  }
-}
-SETTINGS_EOF
 
     AGENT_NAME=$(generate_agent_name)
 
@@ -436,6 +422,12 @@ seed_vscode_markdown_styles() {
 }
 
 finalize() {
+    # Skip if the SessionEnd hook already handled cleanup
+    if [[ -f "/tmp/.clown-handled-\${SESSION_NAME}" ]]; then
+        rm -f "/tmp/.clown-handled-\${SESSION_NAME}"
+        return
+    fi
+
     echo ""
     echo "Finalizing session \${SESSION_NAME}..."
     if [[ ! -d "\$CLONE_DIR" ]]; then
