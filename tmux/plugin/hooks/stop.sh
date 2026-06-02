@@ -39,6 +39,9 @@ JSON=$(jq -n \
 
 write_state "$JSON"
 
+# Record last-response timestamp for statusline
+echo "$(date +%s)" > "/tmp/claude-last-response-${SESSION_ID}"
+
 # Launch window title sync in the background (haiku call while API is idle)
 CWD=$(echo "$INPUT" | jq -r '.cwd // empty')
 debug_log "  Title sync: SESSION_ID=$SESSION_ID CWD=$CWD TMUX_PANE=$TMUX_PANE"

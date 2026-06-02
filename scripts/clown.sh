@@ -2,7 +2,7 @@
 # (c) Meta Platforms, Inc. and affiliates. Confidential and proprietary.
 #
 # Launches Claude Code in a fresh clone. On exit, ensures all changes are
-# committed and synced to commit cloud, then prompts to remove the enlistment.
+# committed and synced to commit cloud. Use --clean to remove inactive clones.
 #
 # Usage:
 #   clown.sh [options] <repo> [-- claude args...]
@@ -89,6 +89,57 @@ generate_agent_name() {
     echo "${adj}-${noun}"
 }
 
+# --- Clone activity detection ---
+# Populates _AC_PATHS cache on first call. Checks claude processes, session
+# wrappers, and AC agents. Returns 0 (active) or 1 (inactive).
+_AC_PATHS_CACHED=""
+_AC_PATHS_LOADED=false
+_load_ac_paths() {
+    if [[ "$_AC_PATHS_LOADED" == true ]]; then return; fi
+    _AC_PATHS_LOADED=true
+    if command -v acd &>/dev/null; then
+        _AC_PATHS_CACHED=$(acd agent list --json 2>/dev/null \
+            | jq -r '.hosts[].agents[] | select(.alive) | .fbclonePath // empty' 2>/dev/null \
+            || true)
+    fi
+}
+
+is_clone_active() {
+    local dir="$1"
+    local name
+    name=$(basename "$dir")
+    local real_dir
+    real_dir=$(realpath "$dir")
+
+    # Check if any claude process has this directory as its cwd
+    while IFS= read -r pid; do
+        [[ -n "$pid" ]] || continue
+        local proc_cwd
+        proc_cwd=$(readlink "/proc/${pid}/cwd" 2>/dev/null || true)
+        if [[ "$proc_cwd" == "$real_dir" || "$proc_cwd" == "${real_dir}/"* ]]; then
+            return 0
+        fi
+    done < <(pgrep -f "claude" 2>/dev/null || true)
+
+    # Check if the session wrapper script is still running
+    if pgrep -f "claude_session_wrapper_${name}[.]sh" &>/dev/null; then
+        return 0
+    fi
+
+    # Check if an AC agent is using this clone
+    _load_ac_paths
+    if [[ -n "$_AC_PATHS_CACHED" ]]; then
+        while IFS= read -r ac_path; do
+            [[ -n "$ac_path" ]] || continue
+            if [[ "$ac_path" == "$real_dir" ]]; then
+                return 0
+            fi
+        done <<< "$_AC_PATHS_CACHED"
+    fi
+
+    return 1
+}
+
 # --- Clean mode: remove inactive clones ---
 clean_clones() {
     local dry_run="${1:-false}"
@@ -104,57 +155,14 @@ clean_clones() {
     fi
     echo ""
 
-    # Collect active AC agent clone paths (once, not per-directory)
-    local ac_paths=""
-    if command -v acd &>/dev/null; then
-        ac_paths=$(acd agent list --json 2>/dev/null \
-            | jq -r '.hosts[].agents[] | select(.alive) | .fbclonePath // empty' 2>/dev/null \
-            || true)
-    fi
-
     for dir in "${TEMP_BASE}"/*/; do
         [[ -d "$dir" ]] || continue
         total=$((total + 1))
         local name
         name=$(basename "$dir")
-        local real_dir
-        real_dir=$(realpath "$dir")
-        local active=false
-        local reason=""
 
-        # Check if any claude process has this directory as its cwd
-        while IFS= read -r pid; do
-            [[ -n "$pid" ]] || continue
-            local proc_cwd
-            proc_cwd=$(readlink "/proc/${pid}/cwd" 2>/dev/null || true)
-            if [[ "$proc_cwd" == "$real_dir" || "$proc_cwd" == "${real_dir}/"* ]]; then
-                active=true
-                reason="claude process"
-                break
-            fi
-        done < <(pgrep -f "claude" 2>/dev/null || true)
-
-        # Check if the session wrapper script is still running (catches sessions
-        # in finalize where the cwd has changed to $HOME)
-        if [[ "$active" != true ]] && pgrep -f "claude_session_wrapper_${name}[.]sh" &>/dev/null; then
-            active=true
-            reason="session wrapper"
-        fi
-
-        # Check if an AC agent is using this clone
-        if [[ "$active" != true && -n "$ac_paths" ]]; then
-            while IFS= read -r ac_path; do
-                [[ -n "$ac_path" ]] || continue
-                if [[ "$ac_path" == "$real_dir" ]]; then
-                    active=true
-                    reason="AC agent"
-                    break
-                fi
-            done <<< "$ac_paths"
-        fi
-
-        if [[ "$active" == true ]]; then
-            echo "  ACTIVE    ${name}  (${reason})"
+        if is_clone_active "$dir"; then
+            echo "  ACTIVE    ${name}"
             kept=$((kept + 1))
         else
             if [[ "$dry_run" == true ]]; then
@@ -175,6 +183,71 @@ clean_clones() {
         echo "Done. ${removed} removed, ${kept} kept (${total} total)."
     fi
     exit 0
+}
+
+# --- Find or create a clone directory ---
+# Looks for an inactive clone with the given prefix to reuse. If none found,
+# picks the next available slot number. Sets CLONE_DIR, SESSION_NAME, and
+# REUSE_CLONE (true/false).
+find_clone_slot() {
+    local prefix="$1"
+    REUSE_CLONE=false
+
+    # Load eden mount states once for the scan
+    local eden_json=""
+    eden_json=$(eden list --json 2>/dev/null || true)
+
+    # Scan for an existing inactive clone we can reuse
+    for dir in "${TEMP_BASE}/${prefix}"*/; do
+        [[ -d "$dir" ]] || continue
+        local name
+        name=$(basename "$dir")
+        # Only match our prefix+number pattern (e.g. f1, f2, c1)
+        [[ "$name" =~ ^${prefix}[0-9]+$ ]] || continue
+        if ! is_clone_active "$dir"; then
+            # Verify the eden mount is healthy before reusing
+            if [[ -n "$eden_json" ]]; then
+                local real_path
+                real_path=$(realpath "${dir%/}")
+                local eden_state
+                eden_state=$(echo "$eden_json" | jq -r --arg p "$real_path" '.[$p].state // empty' 2>/dev/null || true)
+                if [[ "$eden_state" != "RUNNING" ]]; then
+                    echo "Skipping ${name}: eden mount not healthy (state=${eden_state:-missing})"
+                    continue
+                fi
+            fi
+            CLONE_DIR="${dir%/}"
+            SESSION_NAME="$name"
+            REUSE_CLONE=true
+            return
+        fi
+    done
+
+    # No reusable clone found — pick next available slot
+    local n=1
+    while [[ -d "${TEMP_BASE}/${prefix}${n}" ]]; do
+        n=$((n + 1))
+    done
+    CLONE_DIR="${TEMP_BASE}/${prefix}${n}"
+    SESSION_NAME="${prefix}${n}"
+}
+
+# --- Prepare a clone directory (reuse or create fresh) ---
+prepare_clone() {
+    if [[ "$REUSE_CLONE" == true ]]; then
+        echo "Reusing inactive clone: ${CLONE_DIR}"
+        cd "$CLONE_DIR"
+        sl pull 2>/dev/null || true
+        sl checkout main --reason "reset to main for new session | sl help checkout" 2>/dev/null \
+            || sl checkout master --reason "reset to master for new session | sl help checkout" 2>/dev/null \
+            || true
+        cd - >/dev/null
+    else
+        echo "Creating enlistment: fbclone $REPO_TYPE $CLONE_DIR"
+        fbclone "$REPO_TYPE" "$CLONE_DIR"
+    fi
+    seed_vscode_markdown_styles "$CLONE_DIR"
+    add_to_workspace "$CLONE_DIR"
 }
 
 # --- Parse options ---
@@ -257,22 +330,12 @@ fi
 PREFIX="${REPO_TYPE:0:1}"
 mkdir -p "$TEMP_BASE"
 
-# Find next available slot (f1, f2, ... or c1, c2, ...)
-N=1
-while [[ -d "${TEMP_BASE}/${PREFIX}${N}" ]]; do
-    N=$((N + 1))
-done
-CLONE_DIR="${TEMP_BASE}/${PREFIX}${N}"
-SESSION_NAME="${PREFIX}${N}"
+find_clone_slot "$PREFIX"
 
 # --- Finalize function (used by non-tmux modes and embedded in tmux wrapper) ---
+# Commits uncommitted changes and syncs to commit cloud.
+# Enlistment removal is handled separately via `clown.sh --clean`.
 finalize() {
-    # Skip if the SessionEnd hook already handled cleanup
-    if [[ -f "/tmp/.clown-handled-${SESSION_NAME}" ]]; then
-        rm -f "/tmp/.clown-handled-${SESSION_NAME}"
-        return
-    fi
-
     echo ""
     echo "Finalizing session ${SESSION_NAME}..."
 
@@ -283,7 +346,6 @@ finalize() {
 
     cd "$CLONE_DIR"
 
-    # Check for uncommitted changes
     local status
     status=$(sl status --reason "check uncommitted changes | sl help status" 2>/dev/null || true)
 
@@ -298,34 +360,13 @@ finalize() {
     sl cloud sync --reason "sync work to commit cloud | sl help cloud" 2>/dev/null || true
 
     echo ""
-    echo "Session ${SESSION_NAME} finalized."
-
-    # Prompt to remove the enlistment (default: remove)
-    cd "$HOME"
-    local response
-    if [[ -t 0 ]]; then
-        read -r -p "Remove enlistment ${CLONE_DIR}? [Y/n] " response
-        response=${response:-Y}
-    else
-        response="Y"
-    fi
-
-    if [[ "$response" =~ ^[Yy] ]]; then
-        remove_from_workspace "$CLONE_DIR"
-        eden rm  --yes "$CLONE_DIR" 2>/dev/null || rm -rf "$CLONE_DIR"
-        echo "Enlistment removed."
-    else
-        echo "Enlistment kept at ${CLONE_DIR}"
-    fi
+    echo "Session ${SESSION_NAME} finalized. Run 'clown.sh --clean' to remove inactive clones."
 }
 
 # --- Launch ---
 if [[ "$USE_AC" == true ]]; then
-    # AC mode: create fbclone, then hand off to Agent Conductor
-    echo "Creating enlistment: fbclone $REPO_TYPE $CLONE_DIR"
-    fbclone "$REPO_TYPE" "$CLONE_DIR"
-    seed_vscode_markdown_styles "$CLONE_DIR"
-    add_to_workspace "$CLONE_DIR"
+    # AC mode: prepare clone, then hand off to Agent Conductor
+    prepare_clone
 
     AGENT_NAME=$(generate_agent_name)
 
@@ -369,6 +410,7 @@ set -euo pipefail
 CLONE_DIR="${CLONE_DIR}"
 SESSION_NAME="${SESSION_NAME}"
 REPO_TYPE="${REPO_TYPE}"
+REUSE_CLONE="${REUSE_CLONE}"
 WORKSPACE_FILE="${WORKSPACE_FILE}"
 MARKDOWN_STYLES_SRC="${MARKDOWN_STYLES_SRC}"
 
@@ -422,12 +464,6 @@ seed_vscode_markdown_styles() {
 }
 
 finalize() {
-    # Skip if the SessionEnd hook already handled cleanup
-    if [[ -f "/tmp/.clown-handled-\${SESSION_NAME}" ]]; then
-        rm -f "/tmp/.clown-handled-\${SESSION_NAME}"
-        return
-    fi
-
     echo ""
     echo "Finalizing session \${SESSION_NAME}..."
     if [[ ! -d "\$CLONE_DIR" ]]; then
@@ -446,30 +482,20 @@ finalize() {
     echo "Syncing to commit cloud..."
     sl cloud sync --reason "sync work to commit cloud | sl help cloud" 2>/dev/null || true
     echo ""
-    echo "Session \${SESSION_NAME} finalized."
-
-    # Prompt to remove the enlistment (default: remove)
-    cd "\$HOME"
-    local response
-    if [[ -t 0 ]]; then
-        read -r -p "Remove enlistment \${CLONE_DIR}? [Y/n] " response
-        response=\${response:-Y}
-    else
-        response="Y"
-    fi
-
-    if [[ "\$response" =~ ^[Yy] ]]; then
-        remove_from_workspace "\$CLONE_DIR"
-        eden rm --yes "\$CLONE_DIR" 2>/dev/null || rm -rf "\$CLONE_DIR"
-        echo "Enlistment removed."
-    else
-        echo "Enlistment kept at \${CLONE_DIR}"
-    fi
+    echo "Session \${SESSION_NAME} finalized. Run 'clown.sh --clean' to remove inactive clones."
 }
 trap finalize EXIT INT TERM
 
-echo "Creating enlistment: fbclone \${REPO_TYPE} \${CLONE_DIR}"
-fbclone "\${REPO_TYPE}" "\${CLONE_DIR}"
+if [[ "\$REUSE_CLONE" == true ]]; then
+    echo "Reusing inactive clone: \${CLONE_DIR}"
+    cd "\$CLONE_DIR"
+    sl pull 2>/dev/null || true
+    sl checkout main 2>/dev/null || sl checkout master 2>/dev/null || true
+    cd - >/dev/null
+else
+    echo "Creating enlistment: fbclone \${REPO_TYPE} \${CLONE_DIR}"
+    fbclone "\${REPO_TYPE}" "\${CLONE_DIR}"
+fi
 seed_vscode_markdown_styles "\${CLONE_DIR}"
 add_to_workspace "\${CLONE_DIR}"
 
@@ -478,7 +504,7 @@ claude --dangerously-skip-permissions --dangerously-enable-internet-mode${QUOTED
 WRAPPER_EOF
     chmod +x "$WRAPPER"
 
-    # Reserve the directory name so the next clown.sh call picks a different slot
+    # Reserve the directory so concurrent clown.sh calls pick a different slot
     mkdir -p "$CLONE_DIR"
 
     tmux new-window -n "${SESSION_NAME}" "$WRAPPER"
@@ -486,11 +512,8 @@ WRAPPER_EOF
     echo "  Clone: ${CLONE_DIR}"
 
 elif [[ "$MODE" == "background" ]]; then
-    # Background mode: clone here, then launch claude_wrapper
-    echo "Creating enlistment: fbclone $REPO_TYPE $CLONE_DIR"
-    fbclone "$REPO_TYPE" "$CLONE_DIR"
-    seed_vscode_markdown_styles "$CLONE_DIR"
-    add_to_workspace "$CLONE_DIR"
+    # Background mode: prepare clone, then launch claude_wrapper
+    prepare_clone
 
     ARGS_FILE="/tmp/claude_session_args_${SESSION_NAME}.txt"
     cat > "$ARGS_FILE" <<EOF
@@ -519,10 +542,7 @@ EOF
 
 else
     # Interactive mode in current terminal (--no-tmux or no tmux session)
-    echo "Creating enlistment: fbclone $REPO_TYPE $CLONE_DIR"
-    fbclone "$REPO_TYPE" "$CLONE_DIR"
-    seed_vscode_markdown_styles "$CLONE_DIR"
-    add_to_workspace "$CLONE_DIR"
+    prepare_clone
 
     trap finalize EXIT INT TERM
 

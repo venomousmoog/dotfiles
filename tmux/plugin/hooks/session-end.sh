@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # tmux-statusline: SessionEnd hook
 # Cleans up state file when Claude session ends.
-# Also handles clown enlistment cleanup (commit, sync, prompt to remove).
+# Also preserves clown enlistment work (commit + cloud sync).
 
 # Skip hooks for myclaw background sessions
 [[ "$SESSION_TYPE" == "myclaw" ]] && exit 0
@@ -17,13 +17,12 @@ read_hook_input
 
 debug_log "SessionEnd: session=$SESSION_ID"
 
-# --- Clown enlistment cleanup (runs before tmux code which may exit early) ---
+# --- Clown enlistment: preserve work (commit + cloud sync, no deletion) ---
 CLONE_DIR=$(echo "$INPUT" | jq -r '.cwd // empty' 2>/dev/null || true)
 case "${CLONE_DIR:-}" in
     "$HOME/src/clown/"*)
         debug_log "SessionEnd: clown enlistment detected at $CLONE_DIR"
         CLOWN_SESSION_NAME=$(basename "$CLONE_DIR")
-        WORKSPACE_FILE="$HOME/src/monster.code-workspace"
 
         if [ -d "$CLONE_DIR" ]; then
             cd "$CLONE_DIR" 2>/dev/null || true
@@ -36,32 +35,9 @@ case "${CLONE_DIR:-}" in
             fi
 
             sl cloud sync 2>/dev/null || true
+            debug_log "SessionEnd: clown enlistment synced to commit cloud"
 
             cd "$HOME"
-
-            RESPONSE="Y"
-            if [ -e /dev/tty ]; then
-                echo "" > /dev/tty
-                echo "Session ${CLOWN_SESSION_NAME} finalized. Changes synced to commit cloud." > /dev/tty
-                read -r -p "Remove clown enlistment ${CLONE_DIR}? [Y/n] " RESPONSE < /dev/tty 2>/dev/tty || true
-                RESPONSE=${RESPONSE:-Y}
-            fi
-
-            if [[ "$RESPONSE" =~ ^[Yy] ]]; then
-                if [ -f "$WORKSPACE_FILE" ] && command -v jq &>/dev/null; then
-                    tmp=$(mktemp)
-                    jq --arg path "$CLONE_DIR" '.folders |= map(select(.path != $path))' \
-                        "$WORKSPACE_FILE" > "$tmp" && mv "$tmp" "$WORKSPACE_FILE"
-                fi
-                eden rm --yes "$CLONE_DIR" 2>/dev/null || rm -rf "$CLONE_DIR"
-                debug_log "SessionEnd: clown enlistment removed"
-                [ -e /dev/tty ] && echo "Enlistment removed." > /dev/tty
-            else
-                debug_log "SessionEnd: clown enlistment kept"
-                [ -e /dev/tty ] && echo "Enlistment kept at ${CLONE_DIR}" > /dev/tty
-            fi
-
-            touch "/tmp/.clown-handled-${CLOWN_SESSION_NAME}" 2>/dev/null || true
         fi
         ;;
 esac
