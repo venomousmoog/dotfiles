@@ -237,10 +237,19 @@ prepare_clone() {
     if [[ "$REUSE_CLONE" == true ]]; then
         echo "Reusing inactive clone: ${CLONE_DIR}"
         cd "$CLONE_DIR"
-        sl pull 2>/dev/null || true
-        sl checkout main --reason "reset to main for new session | sl help checkout" 2>/dev/null \
-            || sl checkout master --reason "reset to master for new session | sl help checkout" 2>/dev/null \
-            || true
+
+        local status
+        status=$(sl status --reason "check uncommitted changes before reuse | sl help status" 2>/dev/null || true)
+        if [[ -n "$status" ]]; then
+            echo "Saving uncommitted changes from previous session..."
+            sl addremove --reason "track new files before saving | sl help addremove" 2>/dev/null || true
+            sl commit --reason "save previous session work | sl help commit" \
+                -m "[WIP] Uncommitted changes saved before clone reuse" 2>/dev/null || true
+            sl cloud sync --reason "sync saved work to commit cloud | sl help cloud" 2>/dev/null || true
+        fi
+
+        sl pull --reason "pull latest before checkout | sl help pull" 2>/dev/null || true
+        sl checkout remote/fbcode/stable --reason "reset to stable for new session | sl help checkout" 2>/dev/null || true
         cd - >/dev/null
     else
         echo "Creating enlistment: fbclone $REPO_TYPE $CLONE_DIR"
@@ -489,8 +498,18 @@ trap finalize EXIT INT TERM
 if [[ "\$REUSE_CLONE" == true ]]; then
     echo "Reusing inactive clone: \${CLONE_DIR}"
     cd "\$CLONE_DIR"
-    sl pull 2>/dev/null || true
-    sl checkout main 2>/dev/null || sl checkout master 2>/dev/null || true
+
+    status=\$(sl status --reason "check uncommitted changes before reuse | sl help status" 2>/dev/null || true)
+    if [[ -n "\$status" ]]; then
+        echo "Saving uncommitted changes from previous session..."
+        sl addremove --reason "track new files before saving | sl help addremove" 2>/dev/null || true
+        sl commit --reason "save previous session work | sl help commit" \
+            -m "[WIP] Uncommitted changes saved before clone reuse" 2>/dev/null || true
+        sl cloud sync --reason "sync saved work to commit cloud | sl help cloud" 2>/dev/null || true
+    fi
+
+    sl pull --reason "pull latest before checkout | sl help pull" 2>/dev/null || true
+    sl checkout remote/fbcode/stable --reason "reset to stable for new session | sl help checkout" 2>/dev/null || true
     cd - >/dev/null
 else
     echo "Creating enlistment: fbclone \${REPO_TYPE} \${CLONE_DIR}"
