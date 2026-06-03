@@ -382,7 +382,7 @@ if [[ "$USE_AC" == true ]]; then
     echo ""
     echo "Launching AC agent '${AGENT_NAME}' in ${CLONE_DIR}"
     echo "  Repo:  ${REPO_TYPE}"
-    echo "  Model: opus"
+    echo "  Model: claude-opus-4-8[1m]"
     echo ""
 
     acd agent create \
@@ -392,7 +392,14 @@ if [[ "$USE_AC" == true ]]; then
         --name "$AGENT_NAME" \
         --fbclone-path "$CLONE_DIR" \
         --skip-permissions=true \
-        -- --dangerously-enable-internet-mode "${CLAUDE_ARGS[@]:+"${CLAUDE_ARGS[@]}"}"
+        --env "META_CLAUDE_USE_GCP_DIRECT=1" \
+        --env "META_CLAUDE_CODE_NATIVE_BIN=1" \
+        --env "NODE_OPTIONS=--max-old-space-size=32768" \
+        --env "META_CLAUDE_CODE_RELEASE=latest" \
+        --env "CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS=1" \
+        -- --dangerously-skip-permissions --dangerously-enable-internet-mode \
+           --model "claude-opus-4-8[1m]" --effort max \
+           "${CLAUDE_ARGS[@]:+"${CLAUDE_ARGS[@]}"}"
 
     echo ""
     echo "Agent '${AGENT_NAME}' created."
