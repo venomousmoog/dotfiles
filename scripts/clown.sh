@@ -184,18 +184,23 @@ _load_ac_paths() {
     if [[ "$_AC_PATHS_LOADED" == true ]]; then return; fi
     _AC_PATHS_LOADED=true
     if command -v acd &>/dev/null; then
+        # Each line is "<fbclonePath>\t<agent name>" so callers can name the agent.
         _AC_PATHS_CACHED=$(acd agent list --json 2>/dev/null \
-            | jq -r '.hosts[].agents[] | select(.alive) | .fbclonePath // empty' 2>/dev/null \
+            | jq -r '.hosts[].agents[] | select(.alive) | select(.fbclonePath != null) | "\(.fbclonePath)\t\(.name // "unknown")"' 2>/dev/null \
             || true)
     fi
 }
 
+# On a return of 0 (active), sets _ACTIVE_REASON to a human-readable
+# explanation of what is holding the slot (process + pid, wrapper, or AC agent).
+_ACTIVE_REASON=""
 is_slot_active() {
     local dir="$1"
     local name
     name=$(basename "$dir")
     local real_dir
     real_dir=$(realpath "$dir")
+    _ACTIVE_REASON=""
 
     # Check if any claude process has this directory as its cwd
     while IFS= read -r pid; do
@@ -203,21 +208,28 @@ is_slot_active() {
         local proc_cwd
         proc_cwd=$(readlink "/proc/${pid}/cwd" 2>/dev/null || true)
         if [[ "$proc_cwd" == "$real_dir" || "$proc_cwd" == "${real_dir}/"* ]]; then
+            local cmd
+            cmd=$(ps -o comm= -p "$pid" 2>/dev/null | tr -d '\n' || true)
+            _ACTIVE_REASON="claude process ${cmd:-claude} (pid ${pid}) running here"
             return 0
         fi
     done < <(pgrep -f "claude" 2>/dev/null || true)
 
     # Check if the session wrapper script is still running
-    if pgrep -f "claude_session_wrapper_${name}[.]sh" &>/dev/null; then
+    local wrapper_pid
+    wrapper_pid=$(pgrep -f "claude_session_wrapper_${name}[.]sh" 2>/dev/null | head -n1 || true)
+    if [[ -n "$wrapper_pid" ]]; then
+        _ACTIVE_REASON="session wrapper still running (pid ${wrapper_pid})"
         return 0
     fi
 
     # Check if an AC agent is using this slot
     _load_ac_paths
     if [[ -n "$_AC_PATHS_CACHED" ]]; then
-        while IFS= read -r ac_path; do
+        while IFS=$'\t' read -r ac_path ac_name; do
             [[ -n "$ac_path" ]] || continue
             if [[ "$ac_path" == "$real_dir" ]]; then
+                _ACTIVE_REASON="live AC agent '${ac_name:-unknown}' attached to this slot"
                 return 0
             fi
         done <<< "$_AC_PATHS_CACHED"
@@ -253,7 +265,7 @@ clean_slots() {
         fi
 
         if is_slot_active "$dir"; then
-            echo "  ACTIVE    ${kind}  ${name}"
+            echo "  ACTIVE    ${kind}  ${name}  — ${_ACTIVE_REASON:-in use}"
             kept=$((kept + 1))
         else
             if [[ "$dry_run" == true ]]; then
@@ -527,7 +539,8 @@ if [[ "$USE_AC" == true ]]; then
         --env "META_CLAUDE_CODE_RELEASE=latest" \
         --env "CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS=1" \
         -- --dangerously-skip-permissions --dangerously-enable-internet-mode \
-           --model "claude-opus-4-8[1m]" --effort max \
+           --model "claude-opus-4-8[1m]" --effort xhigh \
+           --settings '{"ultracode": true}' \
            "${CLAUDE_ARGS[@]:+"${CLAUDE_ARGS[@]}"}"
 
     echo ""
