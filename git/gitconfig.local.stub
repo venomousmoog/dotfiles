@@ -1,0 +1,15 @@
+# .gitconfig -- Dotfiles bootstrap (local, real file -- NOT a symlink)
+#
+# This must be a real file rather than a symlink into the repo, so that tools
+# which run `git config --global ...` write *here* instead of mutating the
+# tracked git/gitconfig. In particular the Meta AI-agent launcher provisions a
+# per-user x509 agent cert and runs `git config --global http.<host>.sslCert ...`
+# on startup; with a symlinked ~/.gitconfig those writes landed in the repo and
+# showed up as an endless dirty git/gitconfig. (Those entries are redundant --
+# git/gitconfig.linux.meta and /etc/gitconfig already configure the certs.)
+#
+# NEW MACHINE SETUP: copy this file to ~/.gitconfig
+#   cp ~/src/dotfiles/git/gitconfig.local.stub ~/.gitconfig
+
+[include]
+    path = ~/src/dotfiles/git/gitconfig

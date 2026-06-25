@@ -20,7 +20,11 @@ def main [--dry-run] {
 
     let links = [
         # --- git ---
-        { source: "git/gitconfig", method: symlink, target: "~/.gitconfig" }
+        # ~/.gitconfig is a real file (copied stub), NOT a symlink into the repo, so
+        # that `git config --global ...` writes (e.g. the Meta agent launcher's x509
+        # cert setup) land locally instead of dirtying the tracked git/gitconfig.
+        # The stub just `[include]`s git/gitconfig, which itself includes .gitconfig.os.
+        { source: "git/gitconfig.local.stub", method: copy, target: "~/.gitconfig" }
         { source: "git/gitconfig.{platform}", method: symlink, target: "~/.gitconfig.os" }
 
         # --- nushell ---
