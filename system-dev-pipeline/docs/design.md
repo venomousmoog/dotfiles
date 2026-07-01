@@ -1,6 +1,6 @@
 # System-Dev Pipeline — Design
 
-**Status:** draft · R1 review + prototyping + clarify-product + test spec + split product roles (standalone skills) + combined component detailed design + plugin packaging + execution workflow + artifact-path layout + critic-per-artifact · substrate: **markdown work log** (beads deferred) · **Date:** 2026-06-29 (rev 2026-07-01) · **Tracking:** `adp-4` (see `system-dev-pipeline-log.md`)
+**Status:** draft · R1 review + prototyping + clarify-product + test spec + split product roles (standalone skills) + combined component detailed design + plugin packaging + execution workflow + artifact-path layout + critic-per-artifact + single-entry (build-it) · substrate: **markdown work log** (beads deferred) · **Date:** 2026-06-29 (rev 2026-07-01) · **Tracking:** `adp-4` (see `docs/log.md`)
 **Working name:** `system-dev-pipeline` (provisional)
 
 ## Summary
@@ -263,24 +263,15 @@ Rules: (1) each stage writes to its canonical path and records that `path` on it
 
 ## Plugin packaging
 
-All the stages ship as **one plugin** (provisional name `system-dev-pipeline`) so they can be **scoped as a unit, versioned together, and tightly interwoven** — shared manifest/spine conventions, a common gating mechanism, and a single orchestrator entry command. Packaging also lets each stage skill be **optimized independently** (the way `clarify-task` and `adversarial-plan` already were) while staying coherent. Layout mirrors existing plugins: `.claude-plugin/plugin.json`, `skills/`, `agents/`, `commands/`, `hooks/`.
+All the stages ship as **one plugin** (`system-dev-pipeline`; source of truth in the git repo `~/src/dotfiles/system-dev-pipeline/`), but to avoid **polluting ambient context** the plugin exposes a **single registered skill** — `build-it` — as its only surface. Every stage's instructions are **reference docs loaded on demand**, not separate registered skills. (An enabled plugin surfaces every skill in `skills/`, and there is no per-skill "hidden" flag — so the only way to keep a stage out of the always-on `available_skills` list is to not register it as a skill.) Layout: `.claude-plugin/plugin.json`, `skills/build-it/`, `references/stages/` + `references/conventions.md`, `agents/`, `commands/`, `hooks/`, `scripts/`, `docs/`.
 
-**Plugin-local skills (built here):**
-- `system-dev` — the **orchestrator** (pipeline driver + gating + tier-triage + spine + Test-Spec back-test); backs the `/system-dev` command.
-- `clarify-product` — front gate (from `clarify-task`).
-- `product-manager` — Product Spec authoring + spec-change review (**split from `product-architect` Ph1**).
-- `milestone-slicing` — derive milestones from the product spec.
-- `test-spec-generator` — E2E integration validation scenarios from the product spec.
-- `product-architect` — ERD / System Architecture (**split from `product-architect` Ph2**).
-- `prototype-runner` — spikes (evidence over introspection).
-- `component-detailed-design` — combine `technical-design-doc` + `adversarial-plan`/`writing-plans` into the one design+plan artifact.
-- `product-architect-reviewer` — dispatch implementers, review, adjust (**split from `product-architect` Ph4–5**).
+**Single registered skill:** `build-it` — the orchestrator (pipeline driver + gating + tier-triage + spine + Test-Spec back-test); backs `/build-it`; loads each stage on demand from `references/stages/`.
 
-**`agents/`:** the context-free **implementer** and **reviewer** subagent personas used in Stage 5.
-**`hooks/`:** `SessionStart` to load the manifest/spine into context; usage tracking.
-**Reused (invoked, not packaged):** `adversarial-plan`, `technical-design-doc`, `lightweight-design-doc`, `writing-plans`, `decision-matrix`, `10x-engineer:brainstorming`.
+**Stage references (`references/stages/`, loaded by `build-it`, NOT registered skills):** `clarify-product` (front gate, from clarify-task) · `product-manager` (Product Spec + spec-change review, from PA Ph1) · `milestone-slicing` · `test-spec-generator` (E2E scenarios) · `product-architect` (ERD, from PA Ph2) · `prototype-runner` (spikes) · `component-detailed-design` (technical-design-doc + adversarial-plan/writing-plans) · `product-architect-reviewer` (dispatch/review/adjust, from PA Ph4–5) · `test-spec-critic` (Test-Spec critic).
 
-Splitting `product-architect` into three named skills (rather than calling phases of the monolith) is what makes the role↔gate↔refit-tier mapping explicit and each role independently improvable — and the plugin is the unit that keeps the nine skills and their shared spine/gating conventions interwoven.
+**`agents/`:** context-free implementer + reviewer personas (Read by `product-architect-reviewer`). **`hooks/`:** `SessionStart` surfaces design/log + active run manifest and runs `scripts/check-deps.sh`. **`references/conventions.md`:** shared rules (schema, refit bookkeeping, gate hand-back, proportionality, risk-triage, critic engine). **Reused external skills** (installed separately): `adversarial-plan`, `technical-design-doc`, `lightweight-design-doc`, `writing-plans`, `decision-matrix`, `10x-engineer:brainstorming`/`design-review`, `csc:grill`, `adversarial-diff-review`, `review-code`/`paladin`.
+
+Splitting `product-architect` into three named stage docs makes the role↔gate↔refit-tier mapping explicit and each role independently improvable; keeping them as **on-demand references (not registered skills)** keeps the ambient surface to the single `build-it` entry.
 
 ## Open questions (genuinely still open)
 
