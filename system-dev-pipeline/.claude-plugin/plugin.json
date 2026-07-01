@@ -1,0 +1,28 @@
+{
+  "name": "system-dev-pipeline",
+  "version": "0.1.0",
+  "description": "Take a vague idea to a built system through a chain of gated, durable markdown artifacts — concept -> MVP description -> product spec -> test spec -> ERD/system architecture -> component detailed designs -> implementation — run as a workflow (per-milestone fan-out over components + E2E back-test) with a 3-tier feedback/escalation loop and a per-artifact critic at every gate. Single entry point: the `build-it` skill (the only registered surface); the stage instructions (clarify-product, product-manager, milestone-slicing, test-spec-generator, product-architect, prototype-runner, component-detailed-design, product-architect-reviewer, test-spec-critic) load on demand from references/stages/.",
+  "keywords": [
+    "system-dev", "pipeline", "product-spec", "architecture", "erd",
+    "component-design", "milestones", "prototyping", "test-spec", "orchestrator"
+  ],
+  "tags": ["supports-claude"],
+  "skills": ["./skills/"],
+  "commands": ["./commands/"],
+  "hooks": {
+    "SessionStart": [
+      {
+        "matcher": "startup|resume|clear|compact",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "${CLAUDE_PLUGIN_ROOT}/hooks/session-start.sh"
+          }
+        ]
+      }
+    ]
+  },
+  "author": {
+    "name": "ddriver (venomousmoog)"
+  }
+}
