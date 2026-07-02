@@ -1,35 +1,44 @@
 ---
 name: test-spec-generator
 description: >-
-  Derive a Test Specification — E2E integration validation scenarios — from a
-  Product Spec (not from the code), so the build can be back-tested and each
-  milestone gated on passing scenarios. Stage 3t of the system-dev pipeline. Use
-  after the product spec exists to "write the validation scenarios", "define the
-  E2E acceptance tests", or when a spec-tier refit requires re-deriving affected
-  scenarios. Maps each scenario (SCN-*) to the requirements it validates.
+  Assemble the Test Specification — the set of executable **validation conditions
+  for each requirement** — from the Product Spec's per-requirement `validation`
+  sections, applying the shared testing methodology (prefer full E2E, avoid mocks,
+  cover negatives). Stage 3t of the system-dev pipeline. Use after the product spec
+  exists to "build the test spec", "turn the requirements' validation into
+  executable conditions", or when `product-manager` flags a spec change and the
+  affected conditions must be re-derived. Each condition (SCN-*) satisfies a REQ-*.
 ---
 
 # test-spec-generator
 
-Produce the **Test Specification** from the Product Spec — the validation
-contract, fixed early, that **back-tests the final implementation** and gates
-each milestone. Writing it from the spec (not the code) is what makes it a
-contract rather than a rationalization of whatever got built.
+The **Test Specification is exactly the set of validation conditions for each
+requirement** — nothing more, nothing less. You build it from the Product Spec's
+per-requirement `validation` sections (not from the code), which is what makes it a
+contract rather than a rationalization of whatever got built. It **back-tests the
+final implementation** and gates each milestone.
 
-## Produce the scenarios
+## Assemble the validation conditions
 
-Write `runs/<slug>/test-spec.md`: a set of **E2E integration validation
-scenarios** — user-visible behaviors and cross-component flows that must hold for
-the product to be "done." For each scenario:
+Write `runs/<slug>/test-spec.md`. **For each `REQ-*`**, take its `validation`
+intent and apply **`../testing-methodology.md`** to turn it into one or more
+executable **validation conditions** (`SCN-*`). Each condition has:
 
 - a stable **`SCN-*` id**;
-- the **user-visible behavior / cross-component flow** it exercises (end to end);
-- concrete **setup → action → expected outcome** (executable as an integration check);
-- **`satisfies`** links to the `REQ-*` it validates;
+- **`satisfies` → the `REQ-*`** it proves (every SCN traces to exactly one
+  requirement's `validation`; no orphan conditions, no requirement left uncovered);
+- the **kind** (behavioral E2E / integration / performance-reliability / negative — per the methodology);
+- concrete **setup → action → expected** + a **pass/kill condition**, executable
+  and deterministic — real end-to-end path, **no mocks** unless a real dependency
+  is genuinely unavailable (then flag it);
 - the **milestone** whose slice first makes it go green.
 
-Prefer real integration scenarios over unit-level checks — the point is to prove
-the product works across components, which introspection can't.
+Cover the negative and boundary cases the methodology calls for (failure modes,
+bad input, permission denials, non-goals), not just the happy path. Do **not**
+invent conditions beyond the requirements' `validation` — the Test Spec is the
+union of the per-requirement conditions, so if something needs testing that no
+requirement covers, that's a **spec-tier gap** to raise with `product-manager`,
+not a scenario to add here.
 
 ## Use in the loop
 

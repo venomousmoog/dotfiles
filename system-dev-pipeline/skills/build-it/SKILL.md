@@ -40,7 +40,7 @@ risk-triage, and the **critic engine** + per-artifact critic map).
 |---|---|---|
 | 1. clarify-product | `references/stages/clarify-product.md` | MVP description + product-spec inputs |
 | 2. product-manager (+ milestone-slicing) | `references/stages/product-manager.md`, `.../milestone-slicing.md` | Product Spec + milestones |
-| 3t. test-spec-generator | `references/stages/test-spec-generator.md` | Test Spec (E2E `SCN-*`) |
+| 3t. test-spec-generator | `references/stages/test-spec-generator.md` + `references/testing-methodology.md` | Test Spec = validation conditions per requirement |
 | 3. product-architect | `references/stages/product-architect.md` | ERD / system architecture |
 | exploration | `references/stages/prototype-runner.md` | spikes (evidence) — any time |
 | 4. component-detailed-design | `references/stages/component-detailed-design.md` | per-component design + plan |

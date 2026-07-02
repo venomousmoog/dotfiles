@@ -1,6 +1,6 @@
 # System-Dev Pipeline — Design
 
-**Status:** draft · R1 review + prototyping + clarify-product + test spec + split product roles (standalone skills) + combined component detailed design + plugin packaging + execution workflow + artifact-path layout + critic-per-artifact + single-entry (build-it) · substrate: **markdown work log** (beads deferred) · **Date:** 2026-06-29 (rev 2026-07-01) · **Tracking:** `adp-4` (see `docs/log.md`)
+**Status:** draft · R1 review + prototyping + clarify-product + test spec + split product roles (standalone skills) + combined component detailed design + plugin packaging + execution workflow + artifact-path layout + critic-per-artifact + single-entry (build-it) + requirements(desc/justification/validation) + testing-methodology · substrate: **markdown work log** (beads deferred) · **Date:** 2026-06-29 (rev 2026-07-01) · **Tracking:** `adp-4` (see `docs/log.md`)
 **Working name:** `system-dev-pipeline` (provisional)
 
 ## Summary
@@ -10,7 +10,7 @@ A skill that takes a **vague idea to a built system** through a chain of named, 
 The front gate is a **new `clarify-product`** skill (built on `clarify-task`) whose job is to get enough out of the brainstorm that a *proper product spec* can be written. The rest composes tools we already have, each used for what it is built to do:
 - **`clarify-product`** (new, from `clarify-task`) → elicit the concept into an **MVP description** + the inputs a product spec needs,
 - **`product-manager`** (split from product-architect Ph1) → the **Product Spec**, and reviews product-spec changes; a **milestone-slicing** step derives the delivery milestones,
-- **test-spec generator** (new) → the **Test Specification** (E2E integration validation scenarios) from the product spec,
+- **test-spec generator** (new) → the **Test Specification** = the validation conditions for every requirement, built from each `REQ.validation` via the shared **testing-methodology** (full E2E, avoid mocks, cover negatives),
 - **`product-architect`** (split from product-architect Ph2, + optional adversarial critique) → the **ERD / System Architecture** (components, interfaces, deps, build order),
 - **`technical-design-doc`** (with `adversarial-plan`/`writing-plans` for the plan portion) → per-component **Component Detailed Design** — design *and* implementation plan in one artifact, JIT per milestone, straight from the ERD's component scoping; **`lightweight-design-doc`** then derives a condensed summary for tech-lead review (it does **not** originate designs),
 - **`product-architect-reviewer`** (split from product-architect Ph4–5) → dispatch implementers, review, adjust,
@@ -72,8 +72,8 @@ flowchart LR
 |---|---|---|---|
 | 1 | **Concept** | brainstorm (`10x-engineer:brainstorming`) | — |
 | 2 | **MVP Description** | `clarify-product` (new) + Exploration & Prototyping | signoff |
-| 3 | **Product Spec** (+ milestones) | `product-manager` + milestone-slicing | signoff |
-| 3t | **Test Specification** (E2E scenarios) | test-spec generator (new) | signoff |
+| 3 | **Product Spec** (+ milestones) — requirements each with description / justification / **validation** | `product-manager` + milestone-slicing | signoff |
+| 3t | **Test Specification** — the validation conditions per requirement (each `REQ.validation` → `SCN-*` via `testing-methodology.md`) | test-spec-generator (new) | signoff |
 | 4 | **ERD / System Architecture** | `product-architect` (+ adversarial critique) | signoff |
 | 5 | **Component Detailed Design** — design + implementation plan (JIT per milestone) | `technical-design-doc` (originates) + `adversarial-plan`/`writing-plans` (plan portion) | signoff |
 | 5r | **Component Design review summary** (derived) | `lightweight-design-doc` (from the detailed design) | tech-lead review |
@@ -89,9 +89,11 @@ On larger systems, "idea → code" loses requirements/architecture decisions, ne
 
 `clarify-task` (just optimized) is built for **fast task-framing** — turn a vague ask into a lean goal with the fewest questions. Writing a **product spec** needs more: users, core capabilities, success metrics, constraints, non-goals, and the seed of an MVP. So the front gate is a **separate `clarify-product` skill, based on `clarify-task`'s elicitation patterns** but tuned to gather enough for a proper product spec without tipping into a full research project. Its output is the **MVP Description** plus the elicited material the **`product-manager`** skill formalizes. (Name alternative considered: `clarify-scenario`; chose `clarify-product` because the intent is product-spec readiness — see Open Questions.)
 
-## Test specification: the validation contract
+## Requirements & the Test Specification (validation contract)
 
-Derived from the **Product Spec** (not from the code), the **Test Specification** defines **E2E integration validation scenarios** — the user-visible behaviors and cross-component flows that must hold for the product to be "done." It is fixed early so it can **back-test the final implementation** and is the acceptance backbone at every **milestone boundary** (a milestone's E2E slice is "done" when its scenarios pass). Each scenario maps to one or more product requirements (`REQ-*`) on the spine and becomes an acceptance check on the relevant milestone/component, so a scenario that fails is a first-class, dependency-gating discovery. Writing it from the spec (rather than the implementation) is what makes it a real contract instead of a rationalization of whatever got built.
+**Requirements carry their own validation.** Each `REQ-*` in the Product Spec has three sections — **description** (what it must do), **justification** (why it matters), and **validation** (the condition(s) that prove it's met).
+
+**The Test Specification is exactly the set of validation conditions for every requirement** — no more, no less. `test-spec-generator` turns each `REQ.validation` into executable `SCN-*` conditions by applying the shared **testing methodology** (`references/testing-methodology.md`): prefer **full E2E execution**, **avoid mocks** (a real dependency unless genuinely unavailable, then flagged), cover **negative / boundary cases**, and use **executing tests + real numbers** over claims. Because it's built from the spec's requirements (not the code), it's a real contract; it **back-tests the implementation** and is the acceptance backbone at each **milestone boundary** (the milestone's conditions must pass). Each `SCN-*` `satisfies` exactly one `REQ-*` — a condition with no requirement is scope-creep (raise it as a spec gap), and a requirement whose `validation` has no condition is a coverage gap.
 
 ## Prototyping (spikes): evidence over introspection
 
@@ -140,7 +142,7 @@ The **orchestrator** (which holds the traceability spine) triages each implement
 
 ### Traceability spine (orchestrator-built — R1 correction C3)
 
-No existing skill emits a full spine, so the **orchestrator builds it** in the markdown manifest: it assigns IDs at each stage — `REQ-*` (product-spec requirements), `SCN-*` (Test-Spec E2E scenarios), component IDs and `IFC-*` (interfaces), detailed-design IDs, task IDs — and records the links `REQ → SCN`, `REQ → component/IFC → component-detailed-design → impl-task` (seeded by product-architect's requirements-traceability table). After any refit, a **spine-resync step** updates the affected links and dependency edges so the ready-work order and the back-test re-gate correctly.
+No existing skill emits a full spine, so the **orchestrator builds it** in the markdown manifest: it assigns IDs at each stage — `REQ-*` (product-spec requirements), `SCN-*` (Test-Spec validation conditions, one per `REQ.validation`), component IDs and `IFC-*` (interfaces), detailed-design IDs, task IDs — and records the links `REQ → SCN` (validation), `REQ → component/IFC → component-detailed-design → impl-task` (seeded by product-architect's requirements-traceability table). After any refit, a **spine-resync step** updates the affected links and dependency edges so the ready-work order and the back-test re-gate correctly.
 
 ## Control model: artifact-centric, resumable orchestrator
 

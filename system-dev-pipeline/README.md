@@ -42,7 +42,7 @@ Every authored artifact has a **paired critic** — a gate passes on a critic **
 
 ## Conventions
 
-`references/conventions.md` holds the cross-cutting rules the stage skills defer to: manifest schema + ID scheme, refit bookkeeping (`path`/`history`/`supersedes`), gate hand-back, proportionality, planning risk-triage, and the critic engine.
+`references/conventions.md` holds the cross-cutting rules the stage skills defer to: manifest schema + ID scheme, refit bookkeeping (`path`/`history`/`supersedes`), gate hand-back, proportionality, planning risk-triage, and the critic engine. `references/testing-methodology.md` holds **how requirements are validated** (prefer full E2E, avoid mocks, cover negative/boundary cases) — the Test Spec is built from each requirement's `validation` section via it.
 
 ## Dependencies & setup
 

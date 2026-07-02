@@ -22,17 +22,27 @@ From the `clarify-product` output, produce `runs/<slug>/product-spec.md`:
 ## Product Spec: <name>
 Purpose:            <one sentence>
 Users:              <primary / secondary>
-Core capabilities:  REQ-1 … REQ-n  (each an id'd, testable requirement)
 Success metrics:    <measurable>
 Constraints:        <technical / org / timeline>
 Non-goals:          <out of scope> (wrong outcome would be: <example>)
 Milestones:         <derived by milestone-slicing; MVP first>
 Context:            <repos, prior art, dependencies>
+
+### Requirements
+REQ-<id> — each with THREE sections:
+  - description:   what it must do
+  - justification: why it matters (the underlying need / value)
+  - validation:    the condition(s) that prove it is met
 ```
 
-Give every requirement a stable **`REQ-*` id** — these anchor the traceability
-spine (REQ → SCN scenarios → components → detailed designs → tasks) and let the
-Test Spec map validation scenarios back to requirements.
+Give every requirement a stable **`REQ-*` id** with **description / justification /
+validation**. These anchor the traceability spine (REQ → SCN validation conditions
+→ components → detailed designs → tasks). The **`validation`** section is the seed
+the Test Spec is built from: `test-spec-generator` turns each requirement's
+`validation` into executable `SCN-*` conditions by applying
+`references/testing-methodology.md` (prefer full E2E, avoid mocks, cover negatives).
+Write `validation` as the *intent* ("must be provably true that …"), not the test
+mechanics — the methodology + test-spec-generator handle the how.
 
 ## Review spec changes (spec-tier refits)
 

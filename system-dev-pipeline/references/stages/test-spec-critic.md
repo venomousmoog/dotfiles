@@ -1,15 +1,16 @@
 ---
 name: test-spec-critic
 description: >-
-  Critic for a Test Specification — judge its E2E integration validation
-  scenarios against the Product Spec and return severity-graded findings + a
-  verdict. The quality gate paired with Stage 3t of the system-dev pipeline.
-  Checks REQ↔SCN coverage, whether scenarios are genuinely end-to-end/integration
-  (not unit), concrete acceptance/kill criteria, milestone mapping, and that
-  scenarios derive from the spec (not from the code). Use to "review/critique the
-  test spec", "check scenario coverage", "is this test spec good enough to gate on",
-  or when the orchestrator runs the Stage 3t gate. Not a code-test reviewer — it
-  judges the validation contract, not test implementations.
+  Critic for a Test Specification — judge whether it is exactly the set of
+  validation conditions for each requirement, following the testing methodology,
+  and return severity-graded findings + a verdict. The quality gate paired with
+  Stage 3t of the system-dev pipeline. Checks REQ.validation↔SCN coverage (every
+  requirement's `validation` proven; no orphan / scope-creep conditions),
+  adherence to the testing methodology (genuine full E2E, no unjustified mocks,
+  negative + boundary cases), concrete executable pass/kill conditions, and
+  milestone mapping. Use to "review/critique the test spec", "check validation
+  coverage", or when the orchestrator runs the Stage 3t gate. Judges the
+  validation contract, not test implementations.
 ---
 
 # test-spec-critic
@@ -18,33 +19,37 @@ Judge a **Test Specification** (E2E integration validation scenarios, `SCN-*`)
 against the **Product Spec** it must validate, and return a severity-graded
 verdict. This is the quality gate for Stage 3t — the one artifact the survey found
 no existing critic for. Follow the critic engine + severity vocabulary in
-[`../../references/conventions.md`](../../references/conventions.md) (§ Critics).
+[`../../references/conventions.md`](../../references/conventions.md) (§ Critics), and
+judge scenarios against the shared [`../testing-methodology.md`](../testing-methodology.md).
 
 ## Inputs
 
-- Test Spec: `runs/<slug>/test-spec.md` (the `SCN-*` scenarios)
-- Product Spec: `runs/<slug>/product-spec.md` (the `REQ-*` and milestones)
+- Test Spec: `runs/<slug>/test-spec.md` (the `SCN-*` validation conditions)
+- Product Spec: `runs/<slug>/product-spec.md` (the `REQ-*` with description/justification/**validation**, and milestones)
+- Testing methodology: `../testing-methodology.md` (the rules each `SCN-*` must follow)
 
 ## Done-bar checklist (score each ✅ / 🟡 / ❌ with evidence)
 
-1. **Coverage** — every `REQ-*` is validated by **≥1 `SCN-*`**. List any requirement
-   with no scenario (a HIGH gap) and any scenario with no `satisfies` → `REQ-*`.
-2. **Genuinely E2E / integration** — each scenario exercises a **user-visible
-   behavior or cross-component flow end-to-end**, not a unit/function-level check.
-   Flag scenarios that are really unit tests in disguise.
-3. **Concrete & checkable** — each scenario has **setup → action → expected**
-   specific enough to execute, and a clear **pass/kill condition** (its
-   `--acceptance`). Flag vague "works correctly" outcomes.
-4. **Milestone mapping** — each `SCN-*` names the **milestone** whose slice first
-   makes it go green; the **MVP milestone's** scenarios actually prove the primary
-   infrastructure (the walking-skeleton claim).
-5. **From-spec-not-code** — scenarios trace to the spec's requirements/behaviors,
-   not to an implementation. Flag anything that reads like a rationalization of a
-   built thing.
-6. **Boundaries & failure modes** — critical user journeys, key failure/error
-   paths, and stated **non-goals** (things that must NOT happen) are covered.
-7. **No redundancy / right grain** — scenarios aren't duplicative; each earns its
-   place (proportionality).
+1. **Coverage of every requirement's `validation`** — each `REQ-*`'s `validation`
+   intent is proven by **≥1 `SCN-*`**. List any requirement whose `validation` is
+   unproven (a HIGH gap).
+2. **No orphans / no scope-creep** — every `SCN-*` `satisfies` exactly one `REQ-*`;
+   the Test Spec is the *union of per-requirement conditions* and nothing more.
+   Flag any condition testing something no requirement covers (that's a spec-tier
+   gap for `product-manager`, not a scenario to keep).
+3. **Methodology adherence** (per `../testing-methodology.md`) — genuine **full
+   E2E**, not a unit/function proxy; **no mocks** unless a real dependency is truly
+   unavailable *and* the mock is flagged; the subject under test is never mocked.
+4. **Negative & boundary coverage** — failure modes, malformed/empty/oversized
+   input, permission denials, and stated **non-goals** are validated, not just the
+   happy path.
+5. **Concrete, executable, deterministic** — each `SCN-*` has **setup → action →
+   expected** + a **pass/kill condition** that runs and yields an observable
+   verdict (no vague "works correctly"); repeatable.
+6. **Milestone mapping** — each `SCN-*` names the **milestone** whose slice first
+   makes it go green; the **MVP milestone's** conditions prove the primary infra.
+7. **From-spec-not-code** — conditions trace to `REQ.validation`, not to an
+   implementation (no rationalizing a built thing).
 
 ## Output (the engine)
 
