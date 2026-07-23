@@ -104,6 +104,15 @@ base_for() {
     esac
 }
 
+# Mainline bookmark to reset a fresh slot to. fbsource uses remote/fbcode/stable;
+# configerator has no stable marker, so use master.
+stable_rev_for() {
+    case "$1" in
+        f|fbsource) echo "remote/fbcode/stable" ;;
+        c|configerator) echo "master" ;;
+    esac
+}
+
 require_base() {
     local base="$1" repo="$2"
     if [[ ! -d "$base" ]]; then
@@ -358,6 +367,13 @@ prepare_worktree_slot() {
     fi
     echo "Creating worktree: sl worktree add ${SLOT_DIR}"
     sl worktree add "$SLOT_DIR" --cwd "$base"
+    # `sl worktree add` starts the new worktree at the base enlistment's current
+    # commit, which is usually stale. Pull and reset to stable so each session
+    # starts from a known-good location rather than wherever the base was left.
+    echo "Updating worktree to ${STABLE_REV}..."
+    sl pull --cwd "$SLOT_DIR" --reason "pull latest before checkout | sl help pull" || true
+    sl checkout "$STABLE_REV" --cwd "$SLOT_DIR" \
+        --reason "reset new worktree to stable | sl help checkout" || true
 }
 
 prepare_clone_slot() {
@@ -372,7 +388,7 @@ prepare_clone_slot() {
         echo "Reusing inactive clone: ${SLOT_DIR}"
         save_uncommitted_work "$SLOT_DIR" "reuse"
         sl pull --cwd "$SLOT_DIR" --reason "pull latest before checkout | sl help pull" 2>/dev/null || true
-        sl checkout remote/fbcode/stable --cwd "$SLOT_DIR" \
+        sl checkout "$STABLE_REV" --cwd "$SLOT_DIR" \
             --reason "reset to stable for new session | sl help checkout" 2>/dev/null || true
     else
         echo "Creating enlistment: fbclone $REPO_TYPE $SLOT_DIR"
@@ -472,6 +488,7 @@ if [[ -z "$REPO_TYPE" ]]; then
 fi
 
 PREFIX="${REPO_TYPE:0:1}"
+STABLE_REV="$(stable_rev_for "$REPO_TYPE")"
 mkdir -p "$TEMP_BASE"
 
 # Validate base enlistment up-front in worktree mode so we fail fast.
@@ -574,6 +591,7 @@ PREFIX="${PREFIX}"
 REUSE_SLOT="${REUSE_SLOT}"
 USE_CLONE="${USE_CLONE}"
 BASE_DIR="${BASE_DIR}"
+STABLE_REV="${STABLE_REV}"
 WORKSPACE_FILE="${WORKSPACE_FILE}"
 MARKDOWN_STYLES_SRC="${MARKDOWN_STYLES_SRC}"
 
@@ -692,7 +710,7 @@ if [[ "\$USE_CLONE" == true ]]; then
         echo "Reusing inactive clone: \${SLOT_DIR}"
         save_uncommitted_work "\$SLOT_DIR" "reuse"
         sl pull --cwd "\$SLOT_DIR" --reason "pull latest before checkout | sl help pull" 2>/dev/null || true
-        sl checkout remote/fbcode/stable --cwd "\$SLOT_DIR" \
+        sl checkout "\$STABLE_REV" --cwd "\$SLOT_DIR" \
             --reason "reset to stable for new session | sl help checkout" 2>/dev/null || true
     else
         echo "Creating enlistment: fbclone \${REPO_TYPE} \${SLOT_DIR}"
@@ -706,12 +724,24 @@ else
     fi
     echo "Creating worktree: sl worktree add \${SLOT_DIR}"
     sl worktree add "\$SLOT_DIR" --cwd "\$BASE_DIR"
+    # New worktree starts at the base's (stale) commit; pull + reset to stable.
+    echo "Updating worktree to \${STABLE_REV}..."
+    sl pull --cwd "\$SLOT_DIR" --reason "pull latest before checkout | sl help pull" || true
+    sl checkout "\$STABLE_REV" --cwd "\$SLOT_DIR" \\
+        --reason "reset new worktree to stable | sl help checkout" || true
 fi
 seed_vscode_markdown_styles "\${SLOT_DIR}"
 add_to_workspace "\${SLOT_DIR}"
 
 cd "\$SLOT_DIR"
-claude --dangerously-skip-permissions --dangerously-enable-internet-mode${QUOTED_ARGS}
+META_CLAUDE_CODE_NATIVE_BIN=1 \\
+    NODE_OPTIONS=--max-old-space-size=32768 \\
+    META_CLAUDE_CODE_RELEASE=latest \\
+    CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS=1 \\
+    claude --dangerously-skip-permissions \\
+           --model 'claude-opus-4-8[1m]' \\
+           --settings '{"ultracode": true}' \\
+           --dangerously-enable-internet-mode${QUOTED_ARGS}
 WRAPPER_EOF
     chmod +x "$WRAPPER"
 
@@ -769,5 +799,13 @@ else
     echo ""
 
     cd "$SLOT_DIR"
-    claude --dangerously-skip-permissions --dangerously-enable-internet-mode "${CLAUDE_ARGS[@]:+"${CLAUDE_ARGS[@]}"}"
+    META_CLAUDE_CODE_NATIVE_BIN=1 \
+        NODE_OPTIONS=--max-old-space-size=32768 \
+        META_CLAUDE_CODE_RELEASE=latest \
+        CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS=1 \
+        claude --dangerously-skip-permissions \
+               --model 'claude-opus-4-8[1m]' \
+               --settings '{"ultracode": true}' \
+               --dangerously-enable-internet-mode \
+               "${CLAUDE_ARGS[@]:+"${CLAUDE_ARGS[@]}"}"
 fi
