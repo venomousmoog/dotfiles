@@ -1,0 +1,37 @@
+;; kanata.ctrl.kbd -- Windows/Linux Command layer.
+;; Only remap: Caps = tap Esc / hold Command layer. Clean Ctrl for everything (both
+;; clipboard and readline use Ctrl natively on Win/Linux). Nothing else is remapped.
+
+(defcfg
+  process-unmapped-keys no
+)
+
+(defsrc
+  1 2 3 4 5 6 7 8 9 0 - =
+  caps a s d f g h j k l ; '
+       q w e r t y u i o p [ ] \
+       z x c v b n m , . /
+  left right
+)
+
+(defalias
+  cap (tap-hold 200 200 esc (layer-while-held caps-layer))
+)
+
+(deflayer default
+  1 2 3 4 5 6 7 8 9 0 - =
+  @cap a s d f g h j k l ; '
+       q w e r t y u i o p [ ] \
+       z x c v b n m , . /
+  left right
+)
+
+;; IJKL = arrows, U/O = word-left/right (Ctrl+arrow on Win/Linux). Shift composes for
+;; selection. Everything else stays Ctrl+<key>.
+(deflayer caps-layer
+  f1  f2  f3  f4  f5  f6  f7  f8  f9  f10 f11 f12
+  _   C-a C-s C-d C-f C-g   C-h left down right C-; C-'
+      C-q C-w C-e C-r C-t   C-y C-left up C-right C-p C-[ C-] C-\
+      C-z C-x C-c C-v C-b   C-n C-m C-, C-. C-/
+  C-left C-right
+)

@@ -1,0 +1,41 @@
+;; kanata.macos.kbd -- MacBook Command layer, mirroring what Vial does on the Corne.
+;; Only remap: Caps = tap Esc / hold Command layer.
+;; Everything else (arrows, symbols, Tab, Space, Enter) passes through untouched.
+
+(defcfg
+  process-unmapped-keys no
+)
+
+(defsrc
+  1 2 3 4 5 6 7 8 9 0 - =
+  caps a s d f g h j k l ; '
+       q w e r t y u i o p [ ] \
+       z x c v b n m , . /
+  left right
+)
+
+(defalias
+  ;; tap Caps = Esc, hold Caps = Command layer
+  cap (tap-hold 200 200 esc (layer-while-held caps-layer))
+)
+
+(deflayer default
+  1 2 3 4 5 6 7 8 9 0 - =
+  @cap a s d f g h j k l ; '
+       q w e r t y u i o p [ ] \
+       z x c v b n m , . /
+  left right
+)
+
+;; macOS command layer: Cmd for clipboard/history (A/C/V/X/Z + redo), Ctrl for readline,
+;; F-keys on the number row, Option+arrows = word-wise motion.
+;; IJKL = arrows, U/O = word-left/right (mirrors the Corne Nav layer). Shift composes
+;; for selection: caps+shift+L -> shift+right, caps+shift+O -> shift+opt+right, etc.
+;; Tune a key to Cmd by changing its  C-<key>  to  M-<key> .
+(deflayer caps-layer
+  f1  f2  f3  f4  f5  f6  f7  f8  f9  f10 f11 f12
+  _   M-a C-s C-d C-f C-g   C-h left down right C-; C-'
+      C-q C-w C-e C-r C-t   S-M-z A-left up A-right C-p C-[ C-] C-\
+      M-z M-x M-c M-v C-b   C-n C-m C-, C-. C-/
+  A-left A-right
+)

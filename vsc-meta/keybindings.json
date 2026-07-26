@@ -1,0 +1,18 @@
+// VSCode keybindings (macOS) -- selection-aware Cmd+C in the integrated terminal.
+// With kanata, caps+C -> Cmd+C; mirrors your Windows Ctrl+C setup:
+//   - text selected in the terminal -> copy it
+//   - nothing selected            -> send ^C (SIGINT) to the terminal
+// Editor Cmd+C copy stays the default.
+[
+  {
+    "key": "cmd+c",
+    "command": "workbench.action.terminal.copySelection",
+    "when": "terminalFocus && terminalTextSelected"
+  },
+  {
+    "key": "cmd+c",
+    "command": "workbench.action.terminal.sendSequence",
+    "args": { "text": "\u0003" },
+    "when": "terminalFocus && !terminalTextSelected"
+  }
+]

@@ -49,6 +49,15 @@ def main [--dry-run] {
 
         # --- windows terminal ---
         { source: "terminal/settings.json", method: symlink, target: { windows: "~/AppData/Local/Packages/Microsoft.WindowsTerminalPreview_8wekyb3d8bbwe/LocalState/settings.json" } }
+
+        # --- kanata (Caps = tap Esc / hold Command layer; mirrors the Corne firmware) ---
+        # Self-contained per-OS config; symlinked to the kanata config dir as kanata.kbd.
+        { source: "kanata/kanata.macos.kbd", method: symlink, target: { macos: "~/.config/kanata/kanata.kbd" } }
+        { source: "kanata/kanata.ctrl.kbd", method: symlink, target: { linux: "~/.config/kanata/kanata.kbd", windows: "~/AppData/Roaming/kanata/kanata.kbd" } }
+
+        # --- vscode keybindings (macOS: selection-aware cmd+c in integrated terminal) ---
+        { source: "vscode/keybindings.json", method: symlink, target: { macos: "~/Library/Application Support/Code - Insiders/User/keybindings.json" } }
+        { source: "vsc-meta/keybindings.json", method: symlink, target: { macos: "~/Library/Application Support/VS Code @ FB - Dev/User/keybindings.json" } }
     ]
 
     mut created = 0
