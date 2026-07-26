@@ -7,16 +7,16 @@ pushd "%SCRIPT_DIR%.."
 set "DOTFILES_ROOT=%CD%"
 popd
 
-rem Check for nushell
-where nu >nul 2>&1
+rem Check for PowerShell
+where pwsh >nul 2>&1
 if errorlevel 1 (
-    echo Error: nushell ^(nu^) is not installed or not in PATH.
+    echo Error: PowerShell ^(pwsh^) is not installed or not in PATH.
     echo.
-    echo Install nushell:
-    echo   winget install nushell
-    echo   OR https://www.nushell.sh/book/installation.html
+    echo Install PowerShell:
+    echo   winget install Microsoft.PowerShell
+    echo   OR https://learn.microsoft.com/powershell/scripting/install/installing-powershell-on-windows
     echo.
     exit /b 1
 )
 
-nu "%DOTFILES_ROOT%\install\install.nu" %*
+pwsh -NoProfile -File "%DOTFILES_ROOT%\install\install.ps1" %*

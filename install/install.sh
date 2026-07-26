@@ -5,15 +5,15 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 DOTFILES_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
 
-# Check for nushell
-if ! command -v nu &>/dev/null; then
-    echo "Error: nushell (nu) is not installed or not in PATH."
+# Check for PowerShell
+if ! command -v pwsh &>/dev/null; then
+    echo "Error: PowerShell (pwsh) is not installed or not in PATH."
     echo ""
-    echo "Install nushell:"
-    echo "  Linux:  cargo install nu  OR  https://www.nushell.sh/book/installation.html"
-    echo "  macOS:  brew install nushell"
+    echo "Install PowerShell:"
+    echo "  Linux:  https://learn.microsoft.com/powershell/scripting/install/installing-powershell-on-linux"
+    echo "  macOS:  brew install --cask powershell"
     echo ""
     exit 1
 fi
 
-exec nu "$DOTFILES_ROOT/install/install.nu" "$@"
+exec pwsh -NoProfile -File "$DOTFILES_ROOT/install/install.ps1" "$@"

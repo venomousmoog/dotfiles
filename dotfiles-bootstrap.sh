@@ -2,7 +2,7 @@
 # dotfiles-bootstrap.sh -- Wait for environment sync and ensure dotfiles repo is ready
 #
 # Source this from ~/.bashrc so that the environment is fully initialized
-# before any dotfiles-dependent config (tmux, nushell, etc.) runs.
+# before any dotfiles-dependent config (tmux, etc.) runs.
 #
 # NEW MACHINE SETUP: copy this file to ~/.config/dotfiles-bootstrap.sh
 #   cp ~/src/dotfiles/dotfiles-bootstrap.sh ~/.config/dotfiles-bootstrap.sh
