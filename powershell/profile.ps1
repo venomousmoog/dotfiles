@@ -46,9 +46,11 @@ function Add-To-Path {
     # Skip unresolved env-var style entries (e.g. empty OneDriveConsumer on non-Windows)
     if ($normalized -match '^\$\(.*\)$') { return }
 
-    # Only add existing paths, and avoid duplicates
+    # Only add existing paths, and avoid duplicates. A missing path is expected
+    # for these best-effort adds (platform Tools dir, empty OneDrive on macOS,
+    # etc.), so note it verbosely instead of warning on every startup.
     if (-not (Test-Path -LiteralPath $normalized)) {
-        Write-Warning "Add-To-Path: path not found: $normalized"
+        Write-Verbose "Add-To-Path: path not found: $normalized"
         return
     }
 
@@ -78,8 +80,9 @@ if ($IsWindows) {
     Add-To-Path "$($env:OneDriveConsumer)\tools\"
 }
 if ($IsMacOS) {
-    $(~/homebrew/bin/brew shellenv) | Invoke-Expression
+    $(/opt/homebrew/bin/brew shellenv) | Invoke-Expression
     Add-To-Path '/Users/ddriver/Library/Android/sdk/platform-tools/'
+    Add-To-Path ~/.cargo/bin
 }
 if ($IsLinux) {
     Add-To-Path '/packages/adb/latest/'
@@ -310,9 +313,18 @@ ForEach-Object {
         }
     }
 
-Register-BashArgumentCompleter hg /etc/bash_completion.d/mercurial.sh
-Register-BashArgumentCompleter jf /etc/bash_completion.d/jf
-# Register-BashArgumentCompleter buck2 /etc/bash_completion.d/buck-fbsource.bash
+# Register a bash completion only when its file is actually present, so an
+# optional/missing completion file doesn't throw a validation error at startup.
+function Register-BashCompletionIfPresent {
+    param([string]$Command, [string]$CompletionPath)
+    if ($CompletionPath -and (Test-Path -LiteralPath $CompletionPath)) {
+        Register-BashArgumentCompleter $Command $CompletionPath
+    }
+}
+
+Register-BashCompletionIfPresent hg /etc/bash_completion.d/mercurial.sh
+Register-BashCompletionIfPresent jf /etc/bash_completion.d/jf
+# Register-BashCompletionIfPresent buck2 /etc/bash_completion.d/buck-fbsource.bash
 
 
 function Get-ReversedHgSl {
@@ -333,10 +345,221 @@ Remove-Item alias:sl -Force
 Set-Alias -Name sl -Value Get-ReversedHgSl -Option AllScope
 
 
-$grep_path = (Get-Command grep).Source
-function grep {
-    process {
-        $input | & $grep_path --color=auto @Args
+# Colored grep by default (nothing else special). Resolve the real binary with
+# -CommandType Application so re-sourcing the profile never picks up this wrapper
+# function itself (which left $grep_path empty and broke grep). Gate on
+# $MyInvocation.ExpectingInput so a plain 'grep pattern file' call runs grep
+# directly instead of piping an empty $input into it and blocking on stdin.
+$grepPath = (Get-Command grep -CommandType Application -ErrorAction SilentlyContinue |
+    Select-Object -First 1).Source
+if ($grepPath) {
+    function grep {
+        if ($MyInvocation.ExpectingInput) {
+            $input | & $grepPath --color=auto @Args
+        } else {
+            & $grepPath --color=auto @Args
+        }
+    }
+}
+
+# tlist: list processes / find loaded modules, à la the Windows debugger's
+# 'tlist' (https://learn.microsoft.com/windows-hardware/drivers/debugger/tlist-commands).
+# Windows already ships tlist.exe, so only define our shim elsewhere.
+if (-not $IsWindows) {
+    function tlist {
+        <#
+        .SYNOPSIS
+            List processes / find loaded modules — a Unix & macOS take on the
+            Windows debugger 'tlist' tool.
+        .DESCRIPTION
+            tlist                List every process (PID, PPID, name).
+            tlist <pattern>      List processes whose name or command line
+                                 matches <pattern> (case-insensitive regex).
+            tlist --fuzzy <pat>  Fuzzy (subsequence) match over process names,
+                                 fzf / VS Code style, ranked best-first (uses
+                                 fzf if available). Also -f / /f.
+            tlist <pid>          Show details for a PID, including its loaded
+                                 modules (dylibs/.so), via lsof.
+            tlist -t             Show the process tree (child under parent).
+            tlist -p <name>      Print the PID(s) of processes named <name>.
+            tlist -c             List every process with its full command line.
+            tlist -m <module>    List processes that have <module> loaded
+                                 (a dylib/.so/executable; name or regex).
+
+            Windows-style slash flags (/t /p /c /m) work too. Without sudo the
+            lsof-based views (-m and per-pid modules) only see your own
+            processes, and macOS shared-cache system libs won't appear; prefix
+            with sudo for a fuller, system-wide view.
+        #>
+
+        # Collect processes: two cheap ps calls joined on pid so 'comm' (which
+        # may contain spaces on macOS) always parses as a clean trailing field.
+        $procs = & {
+            $argsMap = @{}
+            foreach ($l in (& ps -axww -o pid=,args= 2>$null)) {
+                if ($l -match '^\s*(\d+)\s+(.+?)\s*$') { $argsMap[[int]$matches[1]] = $matches[2] }
+            }
+            foreach ($l in (& ps -axww -o pid=,ppid=,comm= 2>$null)) {
+                if ($l -match '^\s*(\d+)\s+(\d+)\s+(.+?)\s*$') {
+                    $procPid = [int]$matches[1]
+                    [pscustomobject]@{
+                        PID     = $procPid
+                        PPID    = [int]$matches[2]
+                        Name    = Split-Path -Leaf $matches[3]
+                        Path    = $matches[3]
+                        Command = if ($argsMap.ContainsKey($procPid)) { $argsMap[$procPid] } else { $matches[3] }
+                    }
+                }
+            }
+        }
+
+        # Modules loaded by a process set, via lsof field output. txt = the
+        # executable itself, mem = memory-mapped libraries, DEL = mapped but
+        # unlinked; that trio is what "has module loaded" means on Unix.
+        function Get-Modules {
+            param([string[]]$LsofArgs, [string]$NamePattern)
+            $curPid = $null; $curCmd = $null; $curFd = $null
+            foreach ($line in (& lsof -w -n -P -F pcfn @LsofArgs 2>$null)) {
+                if ($line.Length -lt 1) { continue }
+                $val = $line.Substring(1)
+                switch ($line[0]) {
+                    'p' { $curPid = [int]$val }
+                    'c' { $curCmd = $val }
+                    'f' { $curFd = $val }
+                    'n' {
+                        if ($curFd -match '^(txt|mem|DEL)') {
+                            if (-not $NamePattern -or $val -match $NamePattern) {
+                                [pscustomobject]@{ PID = $curPid; Command = $curCmd; FD = $curFd; Module = $val }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        # Fuzzy (subsequence) score, à la fzf / VS Code: query chars must appear
+        # in order; reward contiguous runs, word boundaries and camelCase humps;
+        # smart-case (case-insensitive unless the query has an uppercase letter).
+        # Returns $null when the query isn't a subsequence of the target.
+        function Get-FuzzyScore {
+            param([string]$Query, [string]$Target)
+            if ([string]::IsNullOrEmpty($Query)) { return 0 }
+            $t = $Target
+            if ($Query -cnotmatch '[A-Z]') { $t = $Target.ToLower() }   # smart-case
+            $seps = '/-_. \'
+            $ti = 0; $score = 0; $streak = 0; $first = -1
+            foreach ($qc in $Query.ToCharArray()) {
+                $found = $false
+                while ($ti -lt $t.Length) {
+                    if ($t[$ti] -eq $qc) {
+                        if ($first -lt 0) { $first = $ti }
+                        $streak++
+                        $score += 1 + ($streak * 2)
+                        if ($ti -eq 0 -or $seps.IndexOf([string]$t[$ti - 1]) -ge 0) {
+                            $score += 5                                  # word boundary
+                        } elseif ([char]::IsUpper($Target[$ti]) -and
+                                  -not [char]::IsUpper($Target[$ti - 1])) {
+                            $score += 3                                  # camelCase hump
+                        }
+                        $ti++; $found = $true; break
+                    } else { $streak = 0; $ti++ }
+                }
+                if (-not $found) { return $null }
+            }
+            return ($score - $first)
+        }
+
+        # Fuzzy-filter objects by a query, ranked best-first. Prefers the real
+        # fzf binary (matching your muscle memory exactly); falls back to the
+        # scorer above when fzf isn't installed.
+        function Select-Fuzzy {
+            param([object[]]$Items, [scriptblock]$Text, [string]$Query)
+            $Items = @($Items)
+            if ([string]::IsNullOrEmpty($Query) -or $Items.Count -eq 0) { return $Items }
+            $strings = foreach ($it in $Items) { (& $Text $it) -replace "`t", ' ' }
+            $fzf = Get-Command fzf -CommandType Application -ErrorAction SilentlyContinue
+            if ($fzf) {
+                $lines = for ($i = 0; $i -lt $Items.Count; $i++) { "$i`t$($strings[$i])" }
+                $ranked = $lines | & $fzf.Source --filter=$Query --delimiter="`t" --nth='2..' 2>$null
+                foreach ($r in $ranked) {
+                    $idx = ($r -split "`t", 2)[0] -as [int]
+                    if ($null -ne $idx -and $idx -ge 0 -and $idx -lt $Items.Count) { $Items[$idx] }
+                }
+            } else {
+                $scored = for ($i = 0; $i -lt $Items.Count; $i++) {
+                    $s = Get-FuzzyScore -Query $Query -Target $strings[$i]
+                    if ($null -ne $s) { [pscustomobject]@{ Item = $Items[$i]; Score = $s } }
+                }
+                $scored | Sort-Object -Property Score -Descending | Select-Object -ExpandProperty Item
+            }
+        }
+
+        $flag = $null
+        if ($args.Count -gt 0 -and $args[0] -match '^[-/]+(.+)$') { $flag = $matches[1].ToLower() }
+
+        switch ($flag) {
+            't' {
+                $byParent = @{}
+                foreach ($p in $procs) {
+                    if (-not $byParent.ContainsKey($p.PPID)) { $byParent[$p.PPID] = @() }
+                    $byParent[$p.PPID] += $p
+                }
+                $known = @{}; foreach ($p in $procs) { $known[$p.PID] = $true }
+                $seen  = [System.Collections.Generic.HashSet[int]]::new()
+                $emit  = {
+                    param($node, $depth)
+                    if (-not $seen.Add([int]$node.PID)) { return }
+                    ('  ' * $depth) + ('{0,-7} {1}' -f $node.PID, $node.Name)
+                    if ($byParent.ContainsKey($node.PID)) {
+                        foreach ($child in ($byParent[$node.PID] | Sort-Object PID)) { & $emit $child ($depth + 1) }
+                    }
+                }
+                $roots = $procs | Where-Object { -not $known.ContainsKey($_.PPID) -or $_.PID -eq $_.PPID } | Sort-Object PID
+                foreach ($r in $roots) { & $emit $r 0 }
+                foreach ($p in ($procs | Sort-Object PID)) { if (-not $seen.Contains([int]$p.PID)) { & $emit $p 0 } }
+                return
+            }
+            'p' {
+                $name = $args[1]
+                if (-not $name) { Write-Error 'tlist -p needs a process name'; return }
+                # match the process NAME only (like Windows tlist /p), not the cmdline
+                $hits = @($procs | Where-Object { $_.Name -match $name } |
+                    Select-Object -ExpandProperty PID | Sort-Object -Unique)
+                if ($hits.Count -eq 0) { -1 } else { $hits }
+                return
+            }
+            'c' { $procs | Select-Object PID, PPID, Command; return }
+            { $_ -eq 'f' -or $_ -eq 'fuzzy' } {
+                # fuzzy (subsequence) match over process names, fzf/VS Code style
+                Select-Fuzzy -Items $procs -Query $args[1] -Text { param($p) $p.Name } |
+                    Select-Object PID, PPID, Name
+                return
+            }
+            'm' {
+                $module = $args[1]
+                if (-not $module) { Write-Error 'tlist -m needs a module name/pattern'; return }
+                Get-Modules -NamePattern $module | Sort-Object PID, Module -Unique |
+                    Select-Object PID, Command, Module
+                return
+            }
+            default {
+                $arg0 = $args[0]
+                if ($null -eq $arg0) {
+                    $procs | Select-Object PID, PPID, Name
+                } elseif ($arg0 -match '^\d+$') {
+                    $targetPid = [int]$arg0
+                    & ps -p $targetPid -o pid,ppid,user,%cpu,%mem,etime,args 2>$null
+                    ''
+                    'Loaded modules:'
+                    Get-Modules -LsofArgs @('-p', "$targetPid") |
+                        Select-Object -ExpandProperty Module -Unique | Sort-Object |
+                        ForEach-Object { '  ' + $_ }
+                } else {
+                    $procs | Where-Object { $_.Name -match $arg0 -or $_.Command -match $arg0 } |
+                        Select-Object PID, PPID, Name
+                }
+            }
+        }
     }
 }
 
