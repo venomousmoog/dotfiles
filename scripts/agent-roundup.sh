@@ -12,7 +12,7 @@
 #   agent-roundup.sh [options]
 #
 # Options:
-#   --timeout N        per-agent reply budget in seconds (default 300)
+#   --timeout N        per-agent reply budget in seconds (default 180)
 #   --start-timeout N  seconds to wait for a booting harness (default 90)
 #   --skip-busy        leave agents that are mid-turn alone
 #   --only NAME|PTY    prompt only this agent; repeatable
@@ -27,7 +27,9 @@
 
 set -euo pipefail
 
-TIMEOUT=300
+# Replies typically land in 30-60s. The timeout only bites on agents that never
+# answer, and it sets the floor on total runtime, so keep it tight.
+TIMEOUT=180
 START_TIMEOUT=90
 POLL_EVERY=5
 SKIP_BUSY=0
@@ -90,7 +92,7 @@ OUT="$OUT_DIR/orientation-$RUN_ID.md"
 # nothing. set-env/get-env needs no relay and round-trips base64 byte-exact.
 prompt_text() {
     local file="$1" pty="$2"
-    printf '%s' "STATUS ROUNDUP (automated, run $RUN_ID) -- read-only: do not start, change, submit or land any work. Step 1: with the Write tool, write a short status report to $file (create parent directories) using exactly these markdown lines: '### <one-line headline of what you are working on>' then '- **State:** <blocked|needs-input|in-progress|waiting-on-ci|idle|done>' then '- **Working on:** <1-2 sentences>' then '- **Diffs:** <D-numbers with their current status, or none>' then '- **Blocked on / needs Dave:** <the decision or input you need from Dave; if you need none, write the single word nothing and nothing else -- never write nothing and then add caveats>' then '- **Next step:** <one line>'. Step 2: hand the report back to the roundup by running exactly the bash command between these markers, and nothing else: <<CMD>> acd agent set-env $pty --env $ENV_KEY=\"\$(base64 < $file | tr -d '\n')\" <</CMD>> Step 3: print the report. Rules: if you cite any diff status you MUST re-query it in this same turn with 'meta phabricator.diff describe -n D<num>', otherwise write 'not checked'; do not edit any file other than $file; do not run builds or tests; keep the report under 180 words; then stop."
+    printf '%s' "STATUS ROUNDUP (automated, run $RUN_ID) -- read-only: do not start, change, submit or land any work. Step 1: with the Write tool, write EXACTLY two markdown lines to $file (create parent directories), nothing else: '- **Status:** <what you were most recently working on for Dave and where it now stands>' and '- **Follow-ups:** <what you need from Dave, or the single word none>'. Keep each line under 60 words and on ONE line. Step 2: hand it back by running exactly the bash command between these markers, and nothing else: <<CMD>> acd agent set-env $pty --env $ENV_KEY=\"\$(base64 < $file | tr -d '\n')\" <</CMD>> Step 3: print the two lines. Rules: if you cite a diff status you MUST re-query it this turn with 'meta phabricator.diff describe -n D<num>', otherwise write 'not checked'; do not edit any file other than $file; do not run builds or tests; then stop."
 }
 
 # --- Topology -------------------------------------------------------------
@@ -100,11 +102,6 @@ acd agent list --json > "$WORK/local.json" 2>/dev/null || echo '{"hosts":[]}' > 
 
 LOCAL_PTYS="$(jq -r '(.hosts // [])[] | (.agents // [])[] | (.ptyId // .id) // empty' "$WORK/local.json")"
 
-# The mesh-wide roster reports the Conductor's own host as the literal "local"
-# -- a daemon-relative routing key, not a name. `acd host list --json` carries
-# both forms per host, so every roster key is resolved through that table into a
-# canonical hostname, which is what --host and `acd cp` endpoints want. A key
-# with no canonical is a host this daemon has no route to.
 # Namespaced per run, so a get-env read can never pick up a previous roundup's answer.
 ENV_KEY="ROUNDUP_$(printf '%s' "$RUN_ID" | tr -c 'A-Za-z0-9' '_')"
 
@@ -131,6 +128,12 @@ SELF_PTY="$(acd agent whoami --json 2>/dev/null | jq -r '.ptyId // empty' || tru
 # defaults several to "") would silently shift every field after it. US is not
 # IFS whitespace, so empty fields survive. Values are scrubbed of the separator
 # and of newlines because agent names, cwds and titles are not trusted input.
+#
+# The mesh-wide roster reports the Conductor's own host as the literal "local"
+# -- a daemon-relative routing key, not a name. `acd host list --json` carries
+# both forms per host, so each roster key is resolved through that table into a
+# canonical hostname, which is what --host and `acd cp` endpoints want. A key
+# with no canonical is a host this daemon has no route to.
 US="$(printf '\037')"
 jq -r --slurpfile topo "$WORK/topo.json" '
     def clean: (. // "") | tostring | gsub("[\n\r\t\u001f]"; " ");
@@ -211,7 +214,7 @@ strip_ansi() {
 # Terminal scrollback is the last-resort source; keep only the printed report.
 extract_report() {
     local f="$1" start
-    start="$(grep -n '^[[:space:]]*###[[:space:]]' "$f" | tail -1 | cut -d: -f1 || true)"
+    start="$(grep -n '\*\*Status:\*\*' "$f" | tail -1 | cut -d: -f1 || true)"
     if [[ -n "$start" ]]; then tail -n "+$start" "$f"; else tail -n 40 "$f"; fi
 }
 
@@ -266,7 +269,11 @@ probe_agent() {
     # loses replies that are simply not written yet. The prompt is already
     # delivered at this point; the marker appearing is the real completion
     # signal, and $TIMEOUT is the real budget.
-    local waited=0 got=""
+    # An agent that took the turn and ended it without handing anything back is
+    # done, not slow, so waiting out the rest of $TIMEOUT for it just delays the
+    # whole run. Give up once it has gone busy and come back to rest empty --
+    # but only after seeing it busy, since "idle" is also the pre-start state.
+    local waited=0 got="" hs="" saw_busy=0
     while :; do
         got="$(acd agent get-env $hf "$pty" --key "$ENV_KEY" 2>/dev/null | tr -d '\r\n' || true)"
         if [[ -n "$got" ]]; then
@@ -274,6 +281,11 @@ probe_agent() {
             [[ -s "$body" ]] && break
         fi
         [[ $waited -ge $TIMEOUT ]] && break
+        hs="$(acd agent show $hf "$pty" --json 2>/dev/null | jq -r '.hookStatus // ""' 2>/dev/null || true)"
+        case "$hs" in
+            working|running) saw_busy=1 ;;
+            idle|done|need_input) [[ $saw_busy -eq 1 ]] && break ;;
+        esac
         sleep "$POLL_EVERY"
         waited=$((waited + POLL_EVERY))
     done
@@ -309,8 +321,8 @@ probe_agent() {
     # A live TUI always yields *something*, so "non-empty" is not evidence of a
     # report -- without this check an agent that never answered gets a screenful
     # of box-drawing published as its status. Demand the report's own shape.
-    if [[ -s "$body" ]] && grep -q '^[[:space:]]*###[[:space:]]' "$body" \
-                        && grep -q '\*\*State:\*\*' "$body"; then
+    if [[ -s "$body" ]] && grep -q '\*\*Status:\*\*' "$body" \
+                        && grep -q '\*\*Follow-ups:\*\*' "$body"; then
         echo scrape > "$WORK/$slug.src"
     else
         : > "$body"
@@ -346,125 +358,40 @@ field() {  # field <body-file> <label>
     label="$(printf '%s' "$2" | sed 's#/#\\/#g')"
     sed -n "s/^[[:space:]]*[-*][[:space:]]*\*\*${label}:\*\*[[:space:]]*//p" "$1" | head -1
 }
-headline() {
-    [[ -s "$1" ]] || return 0
-    sed -n 's/^[[:space:]]*###[[:space:]]*//p' "$1" | head -1
-}
-is_nothing() {
-    case "$(printf '%s' "$1" | tr '[:upper:]' '[:lower:]' | tr -d ' .')" in
-        ''|nothing|none|na|n/a|-|nothingyet) return 0 ;;
-        *) return 1 ;;
-    esac
-}
 md_cell() { printf '%s' "${1:-}" | tr '\n' ' ' | sed -e 's/|/\\|/g' -e 's/[[:space:]]\{2,\}/ /g'; }
 
-REPLIED=0; SCRAPED=0; SILENT=0; SKIPPED=0; UNREACHABLE=0
-
-: > "$WORK/needs-you.md"
 : > "$WORK/table.md"
-: > "$WORK/reports.md"
-: > "$WORK/not-reached.md"
 
 while IFS="$US" read -r host key pty name mode status cwd slug action; do
-    dhost="$host"
     body="$WORK/$slug.body"
-    src="none"; [[ -f "$WORK/$slug.src" ]] && src="$(cat "$WORK/$slug.src")"
     # Terminal titles carry a leading status glyph that is noise in a document.
     title="$(jq -r '.terminalTitle // ""' "$WORK/$slug.info" 2>/dev/null \
         | sed 's/^[^[:alnum:]]*[[:space:]]*//' || true)"
 
-    case "$action" in
-        prompt)
-            case "$src" in
-                env|file|cp) REPLIED=$((REPLIED + 1)) ;;
-                scrape)      SCRAPED=$((SCRAPED + 1)) ;;
-                *)           SILENT=$((SILENT + 1)) ;;
-            esac
-            ;;
-        unreachable:*) UNREACHABLE=$((UNREACHABLE + 1)) ;;
-        skip:*)        SKIPPED=$((SKIPPED + 1)) ;;
-    esac
+    st="$(field "$body" 'Status')"
+    fu="$(field "$body" 'Follow-ups')"
 
-    hl="$(headline "$body")"
-    st="$(field "$body" 'State')"
-    blocked="$(field "$body" 'Blocked on / needs Dave')"
-    [[ -n "$hl" ]] || hl="$title"
+    # No reply: say so plainly and fall back to the agent's own terminal title
+    # rather than inventing a summary for it.
     if [[ -z "$st" ]]; then
         case "$action" in
-            prompt)        st="_no reply_" ;;
             skip:*)        st="_skipped_" ;;
             unreachable:*) st="_unreachable_" ;;
+            *)             st="_no reply_" ;;
         esac
+        [[ -n "$title" ]] && st="$st -- last title: $title"
     fi
 
-    printf '| %s | %s | %s | %s | %s | %s |\n' \
-        "$(md_cell "$name")" "$(md_cell "$dhost")" "$(md_cell "$mode")" \
-        "$(md_cell "${status:--}")" "$(md_cell "$st")" "$(md_cell "${hl:--}")" >> "$WORK/table.md"
-
-    if [[ -n "$blocked" ]] && ! is_nothing "$blocked"; then
-        printf -- '- **%s** (%s) -- %s\n' "$name" "$dhost" "$(md_cell "$blocked")" >> "$WORK/needs-you.md"
-    fi
-
-    if [[ -s "$body" ]]; then
-        {
-            printf '### %s -- %s\n\n' "$name" "$dhost"
-            printf '`%s` | cwd `%s` | AC status `%s`' "$mode" "${cwd:-?}" "${status:-?}"
-            [[ "$src" == "scrape" ]] && printf ' | _recovered from terminal scrollback_'
-            printf '\n\n'
-            # Truncate BEFORE the rewrite: with `sed ... | head`, head closes the
-            # pipe first, sed dies on SIGPIPE, and pipefail + set -e abort the
-            # whole run here -- after every agent has already been prompted.
-            # The agent's own '###' headline nests under the per-agent heading above.
-            head -80 "$body" | sed 's/^[[:space:]]*###[[:space:]]*\(.*\)$/**\1**/'
-            printf '\n'
-        } >> "$WORK/reports.md"
-    else
-        reason="$action"
-        case "$action" in
-            prompt)
-                reason="prompted, no report within ${TIMEOUT}s"
-                # Without this the acd error is discarded and a failed prompt is
-                # indistinguishable from an agent that simply stayed quiet.
-                if [[ -s "$WORK/$slug.err" ]]; then
-                    reason="$reason -- acd said: $(md_cell "$(head -2 "$WORK/$slug.err")")"
-                fi
-                ;;
-            skip:*)        reason="${action#skip:}" ;;
-            unreachable:*) reason="${action#unreachable:}" ;;
-        esac
-        printf -- '- **%s** (%s, `%s`, status `%s`) -- %s%s\n' \
-            "$name" "$dhost" "$mode" "$status" "$reason" \
-            "$([[ -n "$title" ]] && printf ' | last title: %s' "$(md_cell "$title")")" \
-            >> "$WORK/not-reached.md"
-    fi
+    printf '| %s | %s | %s | %s |\n' \
+        "$(md_cell "$host")" "$(md_cell "$name")" \
+        "$(md_cell "$st")" "$(md_cell "${fu:--}")" >> "$WORK/table.md"
 done < "$WORK/targets.tsv"
 
 {
-    printf '# Agent orientation -- %s\n\n' "$STAMP"
-    printf 'Run `%s` from `%s`. %s agent(s) in the mesh: %s reported, %s recovered from scrollback, %s silent, %s skipped, %s unreachable.\n\n' \
-        "$RUN_ID" "${SELF_CANON:-unknown}" \
-        "$TOTAL" "$REPLIED" "$SCRAPED" "$SILENT" "$SKIPPED" "$UNREACHABLE"
-
-    printf '## Needs you\n\n'
-    if [[ -s "$WORK/needs-you.md" ]]; then cat "$WORK/needs-you.md"; else printf 'Nothing reported as blocked on you.\n'; fi
-    printf '\n'
-
-    printf '## Roster\n\n'
-    printf '| Agent | Host | Mode | AC status | State | Headline |\n'
-    printf '|---|---|---|---|---|---|\n'
+    printf '# Agent roundup -- %s\n\n' "$STAMP"
+    printf '| Machine | Agent | Status | Follow-ups |\n'
+    printf '|---|---|---|---|\n'
     cat "$WORK/table.md"
-    printf '\n'
-
-    if [[ -s "$WORK/not-reached.md" ]]; then
-        printf '## Not reached\n\n'
-        cat "$WORK/not-reached.md"
-        printf '\n'
-    fi
-
-    if [[ -s "$WORK/reports.md" ]]; then
-        printf '## Reports\n\n'
-        cat "$WORK/reports.md"
-    fi
 } > "$OUT"
 
 echo "agent-roundup: wrote $OUT" >&2
