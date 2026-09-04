@@ -29,6 +29,7 @@ set -euo pipefail
 
 TIMEOUT=300
 START_TIMEOUT=90
+POLL_EVERY=5
 SKIP_BUSY=0
 ONLY=""
 MODES="claude,codex,metacode,mhemate"
@@ -252,15 +253,31 @@ probe_agent() {
             >/dev/null 2>"$WORK/$slug.err"; then
         echo ok > "$WORK/$slug.rc"
     else
-        echo "timeout" > "$WORK/$slug.rc"
+        echo "wait-failed" > "$WORK/$slug.rc"
     fi
 
-    # A timed-out prompt may still have produced an answer, so always collect.
     : > "$body"
 
     # 1. The env marker: lossless and routable to any host we can prompt.
-    acd agent get-env $hf "$pty" --key "$ENV_KEY" 2>/dev/null \
-        | tr -d '\r\n' | b64_decode > "$body" 2>/dev/null || : > "$body"
+    #
+    # Poll for it rather than reading once. `--wait` returns early whenever its
+    # own poll loop hits an error -- a flapping daemon uplink makes it come back
+    # in seconds with the agent still mid-answer -- so treating it as the gate
+    # loses replies that are simply not written yet. The prompt is already
+    # delivered at this point; the marker appearing is the real completion
+    # signal, and $TIMEOUT is the real budget.
+    local waited=0 got=""
+    while :; do
+        got="$(acd agent get-env $hf "$pty" --key "$ENV_KEY" 2>/dev/null | tr -d '\r\n' || true)"
+        if [[ -n "$got" ]]; then
+            printf '%s' "$got" | b64_decode > "$body" 2>/dev/null || : > "$body"
+            [[ -s "$body" ]] && break
+        fi
+        [[ $waited -ge $TIMEOUT ]] && break
+        sleep "$POLL_EVERY"
+        waited=$((waited + POLL_EVERY))
+    done
+
     if [[ -s "$body" ]]; then
         echo env > "$WORK/$slug.src"
         acd agent unset-env $hf "$pty" --key "$ENV_KEY" >/dev/null 2>&1 || true
@@ -404,8 +421,15 @@ while IFS="$US" read -r host key pty name mode status cwd slug action; do
     else
         reason="$action"
         case "$action" in
-            prompt)       reason="prompted, no report within ${TIMEOUT}s" ;;
-            skip:*)       reason="${action#skip:}" ;;
+            prompt)
+                reason="prompted, no report within ${TIMEOUT}s"
+                # Without this the acd error is discarded and a failed prompt is
+                # indistinguishable from an agent that simply stayed quiet.
+                if [[ -s "$WORK/$slug.err" ]]; then
+                    reason="$reason -- acd said: $(md_cell "$(head -2 "$WORK/$slug.err")")"
+                fi
+                ;;
+            skip:*)        reason="${action#skip:}" ;;
             unreachable:*) reason="${action#unreachable:}" ;;
         esac
         printf -- '- **%s** (%s, `%s`, status `%s`) -- %s%s\n' \
