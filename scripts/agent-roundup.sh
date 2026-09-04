@@ -151,13 +151,23 @@ display_host() {
 # --- Build the target list ------------------------------------------------
 SELF_PTY="$(acd agent whoami --json 2>/dev/null | jq -r '.ptyId // empty' || true)"
 
-jq -r '(.hosts // [])[] as $h | ($h.agents // [])[]
-       | [$h.hostname, (.ptyId // .id), .name, (.mode // ""), (.status // ""), (.cwd // "")]
-       | @tsv' "$WORK/roster.json" | sort -t"$(printf '\t')" -k1,1 -k3,3 > "$WORK/agents.tsv"
+# Fields are separated by US (0x1f), not tab. Tab is an IFS *whitespace*
+# character, so `IFS=tab read` collapses runs of it -- one empty column (jq
+# defaults several to "") would silently shift every field after it. US is not
+# IFS whitespace, so empty fields survive. Values are scrubbed of the separator
+# and of newlines because agent names, cwds and titles are not trusted input.
+US="$(printf '\037')"
+jq -r '
+    def clean: (. // "") | tostring | gsub("[\n\r\t\u001f]"; " ");
+    (.hosts // [])[] as $h | ($h.agents // [])[]
+    | [ ($h.hostname | clean), ((.ptyId // .id) | clean), (.name | clean),
+        (.mode | clean), (.status | clean), (.cwd | clean) ]
+    | join("\u001f")' "$WORK/roster.json" \
+    | sort -t"$US" -k1,1 -k3,3 > "$WORK/agents.tsv"
 
 : > "$WORK/targets.tsv"
 IDX=0
-while IFS="$(printf '\t')" read -r host pty name mode status cwd; do
+while IFS="$US" read -r host pty name mode status cwd; do
     [[ -n "$pty" ]] || continue
     IDX=$((IDX + 1))
     slug="$IDX-$(printf '%s' "$name" | tr '[:upper:]' '[:lower:]' | tr -cs 'a-z0-9' '-')"
@@ -180,12 +190,13 @@ while IFS="$(printf '\t')" read -r host pty name mode status cwd; do
         action="unreachable:no route from this daemon -- run the roundup on $CONDUCTOR_LABEL"
     fi
 
-    printf '%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\n' \
-        "$host" "$pty" "$name" "$mode" "$status" "$cwd" "$slug" "$action" >> "$WORK/targets.tsv"
+    printf '%s%s%s%s%s%s%s%s%s%s%s%s%s%s%s\n' \
+        "$host" "$US" "$pty" "$US" "$name" "$US" "$mode" "$US" "$status" "$US" \
+        "$cwd" "$US" "$slug" "$US" "$action" >> "$WORK/targets.tsv"
 done < "$WORK/agents.tsv"
 
 TOTAL=$(wc -l < "$WORK/targets.tsv" | tr -d ' ')
-ASKING=$(grep -c "$(printf '\t')prompt$" "$WORK/targets.tsv" || true)
+ASKING=$(grep -c -- "${US}prompt\$" "$WORK/targets.tsv" || true)
 
 echo "agent-roundup $RUN_ID: $TOTAL agent(s) in the mesh, prompting $ASKING" >&2
 if [[ -n "$SELF_HOST" ]]; then
@@ -196,7 +207,7 @@ fi
 
 if [[ $DRY_RUN -eq 1 ]]; then
     printf '\n%-22s %-34s %-9s %-9s %s\n' AGENT HOST MODE STATUS ACTION >&2
-    while IFS="$(printf '\t')" read -r host pty name mode status cwd slug action; do
+    while IFS="$US" read -r host pty name mode status cwd slug action; do
         printf '%-22s %-34s %-9s %-9s %s\n' \
             "$name" "$(display_host "$host")" "$mode" "$status" "$action" >&2
     done < "$WORK/targets.tsv"
@@ -316,7 +327,7 @@ probe_agent() {
 # answered from the Conductor's snapshot even for hosts we cannot route to, so
 # an unreachable agent still contributes its terminal title to the roster.
 PIDS=""
-while IFS="$(printf '\t')" read -r host pty name mode status cwd slug action; do
+while IFS="$US" read -r host pty name mode status cwd slug action; do
     echo '{}' > "$WORK/$slug.info"
     enrich_agent "$host" "$pty" "$slug" &
     PIDS="$PIDS $!"
@@ -324,7 +335,7 @@ done < "$WORK/targets.tsv"
 for pid in $PIDS; do wait "$pid" || true; done
 
 PIDS=""
-while IFS="$(printf '\t')" read -r host pty name mode status cwd slug action; do
+while IFS="$US" read -r host pty name mode status cwd slug action; do
     [[ "$action" == "prompt" ]] || continue
     probe_agent "$host" "$pty" "$slug" &
     PIDS="$PIDS $!"
@@ -359,7 +370,7 @@ REPLIED=0; SCRAPED=0; SILENT=0; SKIPPED=0; UNREACHABLE=0
 : > "$WORK/reports.md"
 : > "$WORK/not-reached.md"
 
-while IFS="$(printf '\t')" read -r host pty name mode status cwd slug action; do
+while IFS="$US" read -r host pty name mode status cwd slug action; do
     dhost="$(display_host "$host")"
     body="$WORK/$slug.body"
     src="none"; [[ -f "$WORK/$slug.src" ]] && src="$(cat "$WORK/$slug.src")"
@@ -405,8 +416,11 @@ while IFS="$(printf '\t')" read -r host pty name mode status cwd slug action; do
             printf '`%s` | cwd `%s` | AC status `%s`' "$mode" "${cwd:-?}" "${status:-?}"
             [[ "$src" == "scrape" ]] && printf ' | _recovered from terminal scrollback_'
             printf '\n\n'
+            # Truncate BEFORE the rewrite: with `sed ... | head`, head closes the
+            # pipe first, sed dies on SIGPIPE, and pipefail + set -e abort the
+            # whole run here -- after every agent has already been prompted.
             # The agent's own '###' headline nests under the per-agent heading above.
-            sed 's/^[[:space:]]*###[[:space:]]*\(.*\)$/**\1**/' "$body" | head -80
+            head -80 "$body" | sed 's/^[[:space:]]*###[[:space:]]*\(.*\)$/**\1**/'
             printf '\n'
         } >> "$WORK/reports.md"
     else
