@@ -33,25 +33,53 @@ if command -v systemctl &>/dev/null; then
     fi
 fi
 
-# Wait for Eden/feature initial sync (source code checkout)
+# Wait for Eden/feature initial sync (source code checkout).
+# The "Initial sync:" line in `feature status` reports the state of the first
+# sync. We distinguish three cases:
+#   successful -> nothing to wait for, proceed
+#   failed     -> a terminal state that will NOT become successful on its own,
+#                 so warn and proceed immediately (blocking here would just hang
+#                 for the whole timeout window before giving up)
+#   anything else (in progress / pending / not started) -> poll until it
+#                 resolves to successful or failed, or we time out
 if command -v feature &>/dev/null; then
-    if ! feature status 2>/dev/null | grep -q "Initial sync: successful"; then
-        printf "Waiting for feature sync"
-        _fs_elapsed=0
-        while ! feature status 2>/dev/null | grep -q "Initial sync: successful"; do
-            sleep 5
-            _fs_elapsed=$((_fs_elapsed + 5))
-            printf "."
-            if [ $_fs_elapsed -ge 300 ]; then
-                printf " timed out after 300s\n"
-                break
-            fi
-        done
-        if [ $_fs_elapsed -lt 300 ]; then
-            printf " done (%ds)\n" "$_fs_elapsed"
-        fi
-        unset _fs_elapsed
-    fi
+    _fs_state() {
+        feature status 2>/dev/null \
+            | sed -n 's/^Initial sync:[[:space:]]*//p' \
+            | head -n1
+    }
+    case "$(_fs_state)" in
+        successful*)
+            ;;  # already done
+        failed*)
+            printf "Warning: feature initial sync state is 'failed' -- continuing without waiting (run 'feature sync' to retry)\n" >&2
+            ;;
+        *)
+            printf "Waiting for feature sync"
+            _fs_elapsed=0
+            while :; do
+                case "$(_fs_state)" in
+                    successful*)
+                        printf " done (%ds)\n" "$_fs_elapsed"
+                        break
+                        ;;
+                    failed*)
+                        printf "\nWarning: feature initial sync state became 'failed' after %ds -- continuing (run 'feature sync' to retry)\n" "$_fs_elapsed" >&2
+                        break
+                        ;;
+                esac
+                if [ $_fs_elapsed -ge 300 ]; then
+                    printf " timed out after 300s\n"
+                    break
+                fi
+                sleep 5
+                _fs_elapsed=$((_fs_elapsed + 5))
+                printf "."
+            done
+            unset _fs_elapsed
+            ;;
+    esac
+    unset -f _fs_state
 fi
 
 # Clone dotfiles repo if missing
@@ -97,3 +125,11 @@ case "$(hostname -f 2>/dev/null || hostname)" in
         unset _md_src
         ;;
 esac
+
+# NOTE: Claude session archiving to Manifold is NOT run from a systemd timer.
+# Manifold writes to the aria_ai bucket require the USER identity, which is
+# present in interactive/login sessions but NOT in systemd user services (they
+# present SERVICE_IDENTITY:ondemand_* and get a 403 on write). Instead the
+# archiver is triggered from a Claude Code SessionStart hook (configured in
+# ~/.claude/settings.json), which runs in the user session and therefore has
+# write access. See ~/.claude/skills/session-finder/.
