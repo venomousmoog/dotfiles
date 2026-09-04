@@ -4,10 +4,9 @@
 # Morning orientation roundup: ask every live acd agent in the AC mesh what it
 # is working on, collect the replies, and publish them as one mdoc.
 #
-# Cross-host prompting only works from the Conductor daemon. A Worker sees every
-# agent (the Conductor pushes a read-only snapshot) but can only route RPCs to
-# itself, so agents this daemon cannot reach are reported as unreachable rather
-# than silently dropped.
+# Runs from any host in the mesh: a Worker routes --host RPCs to its peers just
+# as the Conductor does. Hosts missing from `acd host list` (an uplink that is
+# down) are reported as unreachable rather than silently dropped.
 #
 # Usage:
 #   agent-roundup.sh [options]
@@ -83,10 +82,11 @@ OUT="$OUT_DIR/orientation-$RUN_ID.md"
 # Sent as a SINGLE line: `acd agent prompt` writes the text to the PTY and then
 # submits, so an embedded newline would submit a partial prompt.
 #
-# The agent hands its report back through a PTY env marker rather than a file:
-# `acd cp` between peer workers reports success while writing nothing, and
-# scraping the TUI loses text to wrap padding. set-env/get-env round-trips
-# base64 byte-exact and is readable cross-host.
+# The agent hands its report back through a PTY env marker rather than a file.
+# `acd cp` relays peer-to-peer transfers through the Conductor and, when neither
+# endpoint is the Conductor, leaves the payload there while still reporting
+# `cp ok` against the destination path -- so a Worker-run roundup would collect
+# nothing. set-env/get-env needs no relay and round-trips base64 byte-exact.
 prompt_text() {
     local file="$1" pty="$2"
     printf '%s' "STATUS ROUNDUP (automated, run $RUN_ID) -- read-only: do not start, change, submit or land any work. Step 1: with the Write tool, write a short status report to $file (create parent directories) using exactly these markdown lines: '### <one-line headline of what you are working on>' then '- **State:** <blocked|needs-input|in-progress|waiting-on-ci|idle|done>' then '- **Working on:** <1-2 sentences>' then '- **Diffs:** <D-numbers with their current status, or none>' then '- **Blocked on / needs Dave:** <the decision or input you need from Dave; if you need none, write the single word nothing and nothing else -- never write nothing and then add caveats>' then '- **Next step:** <one line>'. Step 2: hand the report back to the roundup by running exactly the bash command between these markers, and nothing else: <<CMD>> acd agent set-env $pty --env $ENV_KEY=\"\$(base64 < $file | tr -d '\n')\" <</CMD>> Step 3: print the report. Rules: if you cite any diff status you MUST re-query it in this same turn with 'meta phabricator.diff describe -n D<num>', otherwise write 'not checked'; do not edit any file other than $file; do not run builds or tests; keep the report under 180 words; then stop."
@@ -97,27 +97,13 @@ acd agent list --all --json > "$WORK/roster.json"
 acd host list --json  > "$WORK/topo.json"  2>/dev/null || echo '{"hosts":[]}' > "$WORK/topo.json"
 acd agent list --json > "$WORK/local.json" 2>/dev/null || echo '{"hosts":[]}' > "$WORK/local.json"
 
-ROUTABLE="$(jq -r '(.hosts // [])[] | .canonicalHostname // empty' "$WORK/topo.json")"
 LOCAL_PTYS="$(jq -r '(.hosts // [])[] | (.agents // [])[] | (.ptyId // .id) // empty' "$WORK/local.json")"
 
-# Which roster host are we? The mesh-wide view labels the Conductor's own host
-# "local", which is daemon-relative -- it means "the mac" in the Conductor's
-# snapshot but "this box" to a Worker's own RPCs. Identify self by PTY overlap
-# with the local daemon rather than by that label.
-SELF_HOST="$(jq -r --arg ptys "$LOCAL_PTYS" '
-    ($ptys | split("\n") | map(select(length > 0))) as $mine
-    | (.hosts // [])[]
-    | select([(.agents // [])[] | (.ptyId // .id)]
-             | map(. as $p | ($mine | index($p)) != null) | any)
-    | .hostname' "$WORK/roster.json" | head -1)"
-if [[ -z "$SELF_HOST" ]]; then
-    _fqdn="$( { hostname -f 2>/dev/null || hostname; } | tr -d '\n')"
-    if jq -e --arg h "$_fqdn" '(.hosts // []) | map(.hostname == $h) | any' \
-            "$WORK/roster.json" >/dev/null 2>&1; then
-        SELF_HOST="$_fqdn"
-    fi
-fi
-
+# The mesh-wide roster reports the Conductor's own host as the literal "local"
+# -- a daemon-relative routing key, not a name. `acd host list --json` carries
+# both forms per host, so every roster key is resolved through that table into a
+# canonical hostname, which is what --host and `acd cp` endpoints want. A key
+# with no canonical is a host this daemon has no route to.
 # Namespaced per run, so a get-env read can never pick up a previous roundup's answer.
 ENV_KEY="ROUNDUP_$(printf '%s' "$RUN_ID" | tr -c 'A-Za-z0-9' '_')"
 
@@ -133,20 +119,8 @@ if [[ -z "$SELF_CANON" ]]; then
 fi
 [[ -n "$SELF_CANON" ]] || SELF_CANON="$( { hostname -f 2>/dev/null || hostname; } | tr -d '\n')"
 
-CONDUCTOR_LABEL="$(acd agent list --all 2>/dev/null \
-    | sed -n 's/^\([^ ].*\) (conductor,.*/\1/p' | head -1)"
-[[ -n "$CONDUCTOR_LABEL" ]] || CONDUCTOR_LABEL="the Conductor"
-
-# `local` is only a valid RPC target when this daemon *is* the Conductor.
-is_routable() {
-    [[ -n "$SELF_HOST" && "$1" == "$SELF_HOST" ]] && return 0
-    [[ "$1" == "local" ]] && return 1
-    printf '%s\n' "$ROUTABLE" | grep -Fxq -- "$1"
-}
-
-display_host() {
-    if [[ "$1" == "local" ]]; then printf '%s' "$CONDUCTOR_LABEL"; else printf '%s' "$1"; fi
-}
+CONDUCTOR_CANON="$(jq -r '(.hosts // [])[] | select(.role == "conductor")
+                          | .canonicalHostname // empty' "$WORK/topo.json" | head -1)"
 
 # --- Build the target list ------------------------------------------------
 SELF_PTY="$(acd agent whoami --json 2>/dev/null | jq -r '.ptyId // empty' || true)"
@@ -157,20 +131,28 @@ SELF_PTY="$(acd agent whoami --json 2>/dev/null | jq -r '.ptyId // empty' || tru
 # IFS whitespace, so empty fields survive. Values are scrubbed of the separator
 # and of newlines because agent names, cwds and titles are not trusted input.
 US="$(printf '\037')"
-jq -r '
+jq -r --slurpfile topo "$WORK/topo.json" '
     def clean: (. // "") | tostring | gsub("[\n\r\t\u001f]"; " ");
-    (.hosts // [])[] as $h | ($h.agents // [])[]
-    | [ ($h.hostname | clean), ((.ptyId // .id) | clean), (.name | clean),
+    (($topo[0].hosts) // []) as $known
+    | (.hosts // [])[] as $h
+    | (($h.hostname) // "") as $key
+    | ([ $known[]
+         | select((.hostname // "") == $key or (.canonicalHostname // "") == $key)
+         | .canonicalHostname ] | first // "") as $canon
+    | ($h.agents // [])[]
+    | [ ($key | clean), ($canon | clean), ((.ptyId // .id) | clean), (.name | clean),
         (.mode | clean), (.status | clean), (.cwd | clean) ]
     | join("\u001f")' "$WORK/roster.json" \
-    | sort -t"$US" -k1,1 -k3,3 > "$WORK/agents.tsv"
+    | sort -t"$US" -k2,2 -k4,4 > "$WORK/agents.tsv"
 
 : > "$WORK/targets.tsv"
 IDX=0
-while IFS="$US" read -r host pty name mode status cwd; do
+while IFS="$US" read -r key canon pty name mode status cwd; do
     [[ -n "$pty" ]] || continue
     IDX=$((IDX + 1))
     slug="$IDX-$(printf '%s' "$name" | tr '[:upper:]' '[:lower:]' | tr -cs 'a-z0-9' '-')"
+    # An empty canonical means this daemon has no route to that host.
+    host="${canon:-$key}"
 
     action="prompt"
     # The self check has to come first: prompting ourselves would deadlock on --wait.
@@ -186,30 +168,26 @@ while IFS="$US" read -r host pty name mode status cwd; do
         action="skip:mode '$mode' is not prompt-able"
     elif [[ $SKIP_BUSY -eq 1 && "$status" == "working" ]]; then
         action="skip:mid-turn and --skip-busy was set"
-    elif ! is_routable "$host"; then
-        action="unreachable:no route from this daemon -- run the roundup on $CONDUCTOR_LABEL"
+    elif [[ -z "$canon" ]]; then
+        action="unreachable:host '$key' is not in this daemon's topology"
     fi
 
-    printf '%s%s%s%s%s%s%s%s%s%s%s%s%s%s%s\n' \
-        "$host" "$US" "$pty" "$US" "$name" "$US" "$mode" "$US" "$status" "$US" \
-        "$cwd" "$US" "$slug" "$US" "$action" >> "$WORK/targets.tsv"
+    printf '%s%s%s%s%s%s%s%s%s%s%s%s%s%s%s%s%s\n' \
+        "$host" "$US" "$key" "$US" "$pty" "$US" "$name" "$US" "$mode" "$US" \
+        "$status" "$US" "$cwd" "$US" "$slug" "$US" "$action" >> "$WORK/targets.tsv"
 done < "$WORK/agents.tsv"
 
 TOTAL=$(wc -l < "$WORK/targets.tsv" | tr -d ' ')
 ASKING=$(grep -c -- "${US}prompt\$" "$WORK/targets.tsv" || true)
 
 echo "agent-roundup $RUN_ID: $TOTAL agent(s) in the mesh, prompting $ASKING" >&2
-if [[ -n "$SELF_HOST" ]]; then
-    echo "  this daemon: $(display_host "$SELF_HOST")" >&2
-else
-    echo "  this daemon: could not identify itself in the mesh view" >&2
-fi
+echo "  this daemon: ${SELF_CANON:-unknown}${CONDUCTOR_CANON:+ (conductor: $CONDUCTOR_CANON)}" >&2
 
 if [[ $DRY_RUN -eq 1 ]]; then
     printf '\n%-22s %-34s %-9s %-9s %s\n' AGENT HOST MODE STATUS ACTION >&2
-    while IFS="$US" read -r host pty name mode status cwd slug action; do
+    while IFS="$US" read -r host key pty name mode status cwd slug action; do
         printf '%-22s %-34s %-9s %-9s %s\n' \
-            "$name" "$(display_host "$host")" "$mode" "$status" "$action" >&2
+            "$name" "$host" "$mode" "$status" "$action" >&2
     done < "$WORK/targets.tsv"
     printf '\nPrompt that would be sent:\n\n%s\n' \
         "$(prompt_text "$REMOTE_DIR/<agent>.md" "<agent-pty>")" >&2
@@ -250,7 +228,7 @@ unwrap_md() {
 # Hostnames are FQDNs with no whitespace, so an unquoted $hf expansion is safe
 # and lets the flag disappear entirely for the local daemon.
 host_flag() {
-    [[ "$1" == "$SELF_HOST" ]] || printf -- '--host %s' "$1"
+    [[ "$1" == "$SELF_CANON" ]] || printf -- '--host %s' "$1"
 }
 
 # Terminal titles give every routable agent a headline even when it never
@@ -291,7 +269,7 @@ probe_agent() {
     acd agent unset-env $hf "$pty" --key "$ENV_KEY" >/dev/null 2>&1 || true
 
     # 2. Same host: read the report the agent wrote.
-    if [[ "$host" == "$SELF_HOST" && -s "$remote" ]]; then
+    if [[ "$host" == "$SELF_CANON" && -s "$remote" ]]; then
         cat "$remote" > "$body"
         echo file > "$WORK/$slug.src"
         return 0
@@ -299,7 +277,7 @@ probe_agent() {
 
     # 3. Remote file copy. `acd cp` reports success between peer workers even
     #    when it writes nothing, so the destination is checked, not trusted.
-    if [[ "$host" != "$SELF_HOST" && -n "$SELF_CANON" ]]; then
+    if [[ "$host" != "$SELF_CANON" ]]; then
         acd cp "$host:$remote" "$SELF_CANON:$body" >/dev/null 2>&1 || true
         if [[ -s "$body" ]]; then echo cp > "$WORK/$slug.src"; return 0; fi
     fi
@@ -327,7 +305,7 @@ probe_agent() {
 # answered from the Conductor's snapshot even for hosts we cannot route to, so
 # an unreachable agent still contributes its terminal title to the roster.
 PIDS=""
-while IFS="$US" read -r host pty name mode status cwd slug action; do
+while IFS="$US" read -r host key pty name mode status cwd slug action; do
     echo '{}' > "$WORK/$slug.info"
     enrich_agent "$host" "$pty" "$slug" &
     PIDS="$PIDS $!"
@@ -335,7 +313,7 @@ done < "$WORK/targets.tsv"
 for pid in $PIDS; do wait "$pid" || true; done
 
 PIDS=""
-while IFS="$US" read -r host pty name mode status cwd slug action; do
+while IFS="$US" read -r host key pty name mode status cwd slug action; do
     [[ "$action" == "prompt" ]] || continue
     probe_agent "$host" "$pty" "$slug" &
     PIDS="$PIDS $!"
@@ -370,8 +348,8 @@ REPLIED=0; SCRAPED=0; SILENT=0; SKIPPED=0; UNREACHABLE=0
 : > "$WORK/reports.md"
 : > "$WORK/not-reached.md"
 
-while IFS="$US" read -r host pty name mode status cwd slug action; do
-    dhost="$(display_host "$host")"
+while IFS="$US" read -r host key pty name mode status cwd slug action; do
+    dhost="$host"
     body="$WORK/$slug.body"
     src="none"; [[ -f "$WORK/$slug.src" ]] && src="$(cat "$WORK/$slug.src")"
     # Terminal titles carry a leading status glyph that is noise in a document.
@@ -440,7 +418,7 @@ done < "$WORK/targets.tsv"
 {
     printf '# Agent orientation -- %s\n\n' "$STAMP"
     printf 'Run `%s` from `%s`. %s agent(s) in the mesh: %s reported, %s recovered from scrollback, %s silent, %s skipped, %s unreachable.\n\n' \
-        "$RUN_ID" "$(display_host "${SELF_HOST:-unknown}")" \
+        "$RUN_ID" "${SELF_CANON:-unknown}" \
         "$TOTAL" "$REPLIED" "$SCRAPED" "$SILENT" "$SKIPPED" "$UNREACHABLE"
 
     printf '## Needs you\n\n'
