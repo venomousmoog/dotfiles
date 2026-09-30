@@ -22,6 +22,7 @@ final class ReservationStore: ObservableObject {
   @Published var sessionName = ""
   @Published private(set) var favoriteOptionIDs: Set<String> = []
   @Published private(set) var reservations: [DevReservation] = []
+  @Published private(set) var shortTermLeases: [DevReservation] = []
   @Published private(set) var devservers: [DevReservation] = []
   @Published private(set) var reservableODs: [ReservableOD] = []
   @Published private(set) var isRefreshing = false
@@ -353,6 +354,7 @@ final class ReservationStore: ObservableObject {
         try cli.loadInventory()
       }.value
       reservations = inventory.reservations
+      shortTermLeases = inventory.shortTermLeases
       devservers = inventory.devservers
       reservableODs = inventory.reservableODs
       lastUpdated = Date()

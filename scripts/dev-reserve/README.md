@@ -5,7 +5,8 @@ A standalone native macOS menu-bar app for viewing and releasing active DevEnv r
 ## Behavior
 
 - Reads inventory with `dev -q list --with-reservable --json`.
-- Shows active OD reservation countdowns and long-lived devservers.
+- Shows active OD reservation countdowns, inactive short-term Devserver V2 leases, and long-lived devservers in separate sections.
+- Copies a hostname when its displayed host name is clicked; there is no separate copy button.
 - Searches enabled OD types returned by DevEnv, excluding types with known zero capacity.
 - Persists starred OD types locally and sorts favorites to the top of the searchable list.
 - Reserves for a selected 1-, 2-, 3-, or 6-day duration, defaulting to six days, with a headless `dev connect`: no shell, host setup, homedir upload, restore wait, or release prompt.

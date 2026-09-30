@@ -83,16 +83,20 @@ struct DevReserveView: View {
         Text("Hosts")
           .font(.subheadline.weight(.semibold))
         Spacer()
-        Text("\(store.reservations.count + store.devservers.count)")
+        Text("\(store.reservations.count + store.shortTermLeases.count + store.devservers.count)")
           .foregroundStyle(.secondary)
       }
 
-      if store.isRefreshing && store.reservations.isEmpty && store.devservers.isEmpty {
+      if store.isRefreshing && store.reservations.isEmpty && store.shortTermLeases.isEmpty
+        && store.devservers.isEmpty
+      {
         Spacer()
         ProgressView("Loading DevEnv inventory…")
           .frame(maxWidth: .infinity)
         Spacer()
-      } else if store.reservations.isEmpty && store.devservers.isEmpty {
+      } else if store.reservations.isEmpty && store.shortTermLeases.isEmpty
+        && store.devservers.isEmpty
+      {
         ContentUnavailableView(
           "No hosts found",
           systemImage: "server.rack",
@@ -105,12 +109,21 @@ struct DevReserveView: View {
               title: "Active OD reservations",
               hosts: store.reservations,
               showsExpiration: true,
+              fallbackDescription: "Expiration unavailable",
               allowsRelease: true
+            )
+            hostSection(
+              title: "Short-term devserver leases",
+              hosts: store.shortTermLeases,
+              showsExpiration: false,
+              fallbackDescription: "Short-term Devserver V2 lease",
+              allowsRelease: false
             )
             hostSection(
               title: "Devservers",
               hosts: store.devservers,
               showsExpiration: false,
+              fallbackDescription: "Long-lived devserver",
               allowsRelease: false
             )
           }
@@ -124,6 +137,7 @@ struct DevReserveView: View {
     title: String,
     hosts: [DevReservation],
     showsExpiration: Bool,
+    fallbackDescription: String,
     allowsRelease: Bool
   ) -> some View {
     if !hosts.isEmpty {
@@ -134,6 +148,7 @@ struct DevReserveView: View {
         ReservationRow(
           reservation: host,
           showsExpiration: showsExpiration,
+          fallbackDescription: fallbackDescription,
           allowsRelease: allowsRelease && host.releaseHostname != nil,
           isReleasing: store.releasingHostname == host.hostname,
           releaseDisabled: store.releasingHostname != nil || store.isReserving,
@@ -289,6 +304,7 @@ struct DevReserveView: View {
 private struct ReservationRow: View {
   let reservation: DevReservation
   let showsExpiration: Bool
+  let fallbackDescription: String
   let allowsRelease: Bool
   let isReleasing: Bool
   let releaseDisabled: Bool
@@ -301,9 +317,15 @@ private struct ReservationRow: View {
         .foregroundStyle(.tint)
         .frame(width: 20)
       VStack(alignment: .leading, spacing: 3) {
-        Text(reservation.name)
-          .font(.subheadline.weight(.semibold))
-          .lineLimit(2)
+        Button(action: copyHostname) {
+          Text(reservation.name)
+            .font(.subheadline.weight(.semibold))
+            .lineLimit(2)
+            .multilineTextAlignment(.leading)
+        }
+        .buttonStyle(.plain)
+        .help("Copy hostname")
+        .accessibilityLabel("Copy \(reservation.hostname)")
         Text(reservation.hostname)
           .font(.caption.monospaced())
           .foregroundStyle(.secondary)
@@ -325,34 +347,26 @@ private struct ReservationRow: View {
           }
           .font(.caption)
         } else {
-          Text("Long-lived devserver")
+          Text(fallbackDescription)
             .font(.caption)
             .foregroundStyle(.secondary)
         }
       }
       Spacer()
-      VStack(spacing: 8) {
-        Button(action: copyHostname) {
-          Image(systemName: "doc.on.doc")
-        }
-        .buttonStyle(.borderless)
-        .help("Copy hostname")
-
-        if allowsRelease {
-          if isReleasing {
-            ProgressView()
-              .controlSize(.small)
-              .help("Releasing reservation")
-          } else {
-            Button(action: requestRelease) {
-              Image(systemName: "trash")
-                .foregroundStyle(.red)
-            }
-            .buttonStyle(.borderless)
-            .disabled(releaseDisabled)
-            .help("Release reservation")
-            .accessibilityLabel("Release reservation")
+      if allowsRelease {
+        if isReleasing {
+          ProgressView()
+            .controlSize(.small)
+            .help("Releasing reservation")
+        } else {
+          Button(action: requestRelease) {
+            Image(systemName: "trash")
+              .foregroundStyle(.red)
           }
+          .buttonStyle(.borderless)
+          .disabled(releaseDisabled)
+          .help("Release reservation")
+          .accessibilityLabel("Release reservation")
         }
       }
     }

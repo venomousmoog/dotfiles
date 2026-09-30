@@ -76,6 +76,14 @@ private let fixtureJSON = #"""
         "name": "Permanent devserver",
         "status": "Preferred: false",
         "type": "devserver:dev7_xlarge"
+      },
+      {
+        "created": "2026-09-23 15:52",
+        "hostname": "devvm12641.eag0.facebook.com",
+        "is_disabled": false,
+        "name": "devvm12641.eag0 (devserver v2)",
+        "status": "Preferred: false; VPNLess: true",
+        "type": "devserver:dev6_xlarge"
       }
     ]
   }
@@ -110,6 +118,18 @@ private func runModelTests(_ tests: inout TestContext) throws {
   try tests.expect(
     inventory.devservers[0].releaseHostname == nil,
     "expected devservers to remain ineligible for release"
+  )
+  try tests.expect(
+    inventory.shortTermLeases.count == 1,
+    "expected Devserver V2 hosts to be classified as short-term leases"
+  )
+  try tests.expect(
+    inventory.shortTermLeases[0].hostname == "devvm12641.eag0.facebook.com",
+    "expected the short-term lease hostname"
+  )
+  try tests.expect(
+    inventory.shortTermLeases[0].releaseHostname == nil,
+    "expected an inactive Devserver V2 lease to remain ineligible for OD release"
   )
   try tests.expect(
     inventory.reservableODs.count == 1, "expected disabled and zero-capacity ODs to be hidden")
@@ -380,8 +400,9 @@ private func runLiveInventoryTest(_ tests: inout TestContext) throws {
   let inventory = try DevCLI().loadInventory()
   try tests.expect(!inventory.reservableODs.isEmpty, "expected live DevEnv OD types")
   print(
-    "Live inventory: \(inventory.reservations.count) reservations, "
-      + "\(inventory.devservers.count) devservers, "
+    "Live inventory: \(inventory.reservations.count) active reservations, "
+      + "\(inventory.shortTermLeases.count) short-term devserver leases, "
+      + "\(inventory.devservers.count) long-lived devservers, "
       + "\(inventory.reservableODs.count) reservable OD types"
   )
 }

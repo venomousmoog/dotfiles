@@ -14,6 +14,11 @@ public struct DevListEntry: Decodable, Sendable {
   public let status: String
   public let type: String
 
+  public var isShortTermLease: Bool {
+    type.hasPrefix("devserver:")
+      && name.localizedCaseInsensitiveContains("(devserver v2)")
+  }
+
   private enum CodingKeys: String, CodingKey {
     case created
     case expiresAt = "expires_at"
@@ -44,9 +49,10 @@ public struct DevReservation: Identifiable, Equatable, Sendable {
     type = entry.type
     status = entry.status
     created = entry.created
-    expiresAt = entry.expiresAt.flatMap(ExpirationText.parse)
+    let parsedExpiration = entry.expiresAt.flatMap(ExpirationText.parse)
+    expiresAt = parsedExpiration
     releaseHostname =
-      !entry.type.hasPrefix("devserver:")
+      parsedExpiration != nil
         && entry.status.trimmingCharacters(in: .whitespacesAndNewlines)
           .caseInsensitiveCompare("Active") == .orderedSame
       ? explicitHostname.flatMap { $0.isEmpty ? nil : $0 }
@@ -150,12 +156,17 @@ public func prioritizeReservableODs(
 
 public struct DevInventory: Equatable, Sendable {
   public let reservations: [DevReservation]
+  public let shortTermLeases: [DevReservation]
   public let devservers: [DevReservation]
   public let reservableODs: [ReservableOD]
 
   public init(payload: DevListPayload) {
-    reservations = payload.reserved
-      .filter { !$0.type.hasPrefix("devserver:") }
+    let reservationEntries = payload.reserved.filter { entry in
+      !entry.type.hasPrefix("devserver:")
+        || entry.expiresAt.flatMap(ExpirationText.parse) != nil
+    }
+    reservations =
+      reservationEntries
       .map(DevReservation.init)
       .sorted { left, right in
         switch (left.expiresAt, right.expiresAt) {
@@ -170,8 +181,29 @@ public struct DevInventory: Equatable, Sendable {
         }
       }
 
-    let devserverEntries = (payload.reserved + payload.reservable)
-      .filter { $0.type.hasPrefix("devserver:") && $0.hostname != nil }
+    let reservationHostnames = Set(reservations.map(\.hostname))
+    let allDevserverEntries = (payload.reserved + payload.reservable)
+      .filter { entry in
+        guard let hostname = entry.hostname else {
+          return false
+        }
+        return entry.type.hasPrefix("devserver:")
+          && !reservationHostnames.contains(hostname)
+      }
+
+    let shortTermLeaseEntries = allDevserverEntries.filter(\.isShortTermLease)
+    shortTermLeases = Dictionary(
+      grouping: shortTermLeaseEntries,
+      by: { $0.hostname ?? $0.name }
+    )
+    .values
+    .compactMap(\.first)
+    .map(DevReservation.init)
+    .sorted {
+      $0.hostname.localizedCaseInsensitiveCompare($1.hostname) == .orderedAscending
+    }
+
+    let devserverEntries = allDevserverEntries.filter { !$0.isShortTermLease }
     devservers = Dictionary(grouping: devserverEntries, by: { $0.hostname ?? $0.name })
       .values
       .compactMap(\.first)
