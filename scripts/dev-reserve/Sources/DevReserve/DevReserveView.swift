@@ -22,6 +22,8 @@ struct DevReserveView: View {
           reservationsView
         case .reserve:
           reserveView
+        case .agentcloud:
+          agentcloudView
         }
       }
       .frame(maxWidth: .infinity, maxHeight: .infinity)
@@ -257,6 +259,54 @@ struct DevReserveView: View {
     }
   }
 
+  private var agentcloudView: some View {
+    VStack(alignment: .leading, spacing: 10) {
+      HStack {
+        Text("Node diagnostics")
+          .font(.subheadline.weight(.semibold))
+        Spacer()
+        Text("\(store.agentcloudHosts.count)")
+          .foregroundStyle(.secondary)
+      }
+
+      Text(
+        "Running sessions are strongest evidence. Lease holders are shown when attachments are unavailable; Unknown never means free."
+      )
+      .font(.caption)
+      .foregroundStyle(.secondary)
+
+      if let error = store.agentcloudUsageError {
+        messageLabel(error, systemImage: "exclamationmark.triangle.fill", color: .orange)
+      }
+
+      ScrollView {
+        LazyVStack(spacing: 8) {
+          ForEach(store.agentcloudHosts) { host in
+            AgentcloudNodeCard(
+              host: host,
+              attribution: store.agentcloudAttribution(for: host.hostname),
+              lease: store.agentcloudUsage.lease(for: host.hostname),
+              advertised: store.agentcloudUsage.isAdvertised(host.hostname),
+              expanded: store.isAgentcloudHostExpanded(host.hostname),
+              usageSummary: store.agentcloudUsageSummary(for: host.hostname),
+              toggleExpanded: {
+                store.toggleAgentcloudHost(host.hostname)
+              },
+              openSession: { sessionID in
+                store.openAgentcloudSession(sessionID)
+              }
+            )
+          }
+        }
+      }
+      .overlay {
+        if store.agentcloudHosts.isEmpty && store.isRefreshing {
+          ProgressView("Loading nodes…")
+        }
+      }
+    }
+  }
+
   @ViewBuilder
   private var messages: some View {
     if let error = store.operationError {
@@ -300,6 +350,193 @@ struct DevReserveView: View {
       }
       .buttonStyle(.borderless)
     }
+  }
+}
+
+private struct AgentcloudNodeCard: View {
+  let host: DevReservation
+  let attribution: AgentcloudNodeAttribution
+  let lease: AgentcloudNodeLease?
+  let advertised: Bool
+  let expanded: Bool
+  let usageSummary: String
+  let toggleExpanded: () -> Void
+  let openSession: (String) -> Void
+
+  var body: some View {
+    VStack(alignment: .leading, spacing: 8) {
+      HStack(spacing: 8) {
+        Circle()
+          .fill(statusColor)
+          .frame(width: 8, height: 8)
+        VStack(alignment: .leading, spacing: 2) {
+          Text(host.hostname)
+            .font(.caption.monospaced().weight(.semibold))
+            .textSelection(.enabled)
+          Text(host.name)
+            .font(.caption2)
+            .foregroundStyle(.secondary)
+            .lineLimit(1)
+        }
+        Spacer()
+        Text(statusLabel)
+          .font(.caption.weight(.semibold))
+          .foregroundStyle(statusColor)
+        if hasMoreSessions {
+          Button(action: toggleExpanded) {
+            Image(systemName: expanded ? "chevron.up" : "chevron.down")
+          }
+          .buttonStyle(.borderless)
+          .help(expanded ? "Collapse sessions" : "Show all sessions")
+        }
+      }
+
+      attributionView
+
+      if let lease {
+        Label(
+          "\(AgentcloudLeaseText.label(expiresAt: lease.expiresAt)) · holder "
+            + String(lease.holderSessionID.prefix(8)),
+          systemImage: "lock.fill"
+        )
+        .font(.caption2)
+        .foregroundStyle(.secondary)
+      }
+    }
+    .padding(10)
+    .background(.quaternary.opacity(0.45), in: RoundedRectangle(cornerRadius: 10))
+    .help(usageSummary)
+  }
+
+  @ViewBuilder
+  private var attributionView: some View {
+    switch attribution {
+    case .attached(let primary, let others):
+      AgentcloudSessionRow(
+        session: primary,
+        caption: primary.running ? "Using it now" : lastActivityLabel(primary.lastActivityAt),
+        openSession: openSession
+      )
+      if expanded {
+        ForEach(others) { session in
+          AgentcloudSessionRow(
+            session: session,
+            caption: session.running ? "Using it now" : lastActivityLabel(session.lastActivityAt),
+            openSession: openSession
+          )
+        }
+      } else if !others.isEmpty {
+        Button("+\(others.count) more attached") {
+          toggleExpanded()
+        }
+        .buttonStyle(.borderless)
+        .font(.caption)
+      }
+    case .holder(let session, let lease):
+      if let session {
+        AgentcloudSessionRow(
+          session: session,
+          caption: "Reserved this node",
+          openSession: openSession
+        )
+      } else {
+        AgentcloudSessionRow(
+          session: AgentcloudSessionUsage(
+            id: lease.holderSessionID,
+            title: String(lease.holderSessionID.prefix(8)),
+            running: false,
+            lastActivityAt: nil,
+            lastSequence: 0
+          ),
+          caption: "Reserved this node",
+          openSession: openSession
+        )
+      }
+    case .unknown:
+      Text(
+        "Unknown · no listed session or lease names a holder. An unlisted session may still be using this node."
+      )
+      .font(.caption)
+      .foregroundStyle(.secondary)
+    }
+  }
+
+  private var hasMoreSessions: Bool {
+    if case .attached(_, let others) = attribution {
+      return !others.isEmpty
+    }
+    return false
+  }
+
+  private var statusLabel: String {
+    switch attribution {
+    case .attached(let primary, _):
+      return primary.running ? "Busy" : "Attached"
+    case .holder:
+      return "Reserved"
+    case .unknown:
+      return advertised ? "Unknown" : "Not seen"
+    }
+  }
+
+  private var statusColor: Color {
+    switch attribution {
+    case .attached(let primary, _):
+      return primary.running ? .orange : .blue
+    case .holder:
+      return .orange
+    case .unknown:
+      return .secondary
+    }
+  }
+
+  private func lastActivityLabel(_ date: Date?) -> String {
+    guard let date else {
+      return "Attached · activity unknown"
+    }
+    let seconds = max(0, Int(Date().timeIntervalSince(date)))
+    if seconds < 60 {
+      return "Last active just now"
+    }
+    if seconds < 3_600 {
+      return "Last active \(seconds / 60)m ago"
+    }
+    if seconds < 86_400 {
+      return "Last active \(seconds / 3_600)h ago"
+    }
+    return "Last active \(seconds / 86_400)d ago"
+  }
+}
+
+private struct AgentcloudSessionRow: View {
+  let session: AgentcloudSessionUsage
+  let caption: String
+  let openSession: (String) -> Void
+
+  var body: some View {
+    Button {
+      openSession(session.id)
+    } label: {
+      HStack(alignment: .top, spacing: 8) {
+        Image(systemName: session.running ? "bolt.circle.fill" : "circle")
+          .foregroundStyle(session.running ? Color.orange : Color.secondary)
+        VStack(alignment: .leading, spacing: 2) {
+          Text(session.title)
+            .font(.caption.weight(.semibold))
+            .lineLimit(2)
+            .multilineTextAlignment(.leading)
+          Text("\(caption) · \(session.id.prefix(8))")
+            .font(.caption2.monospaced())
+            .foregroundStyle(.secondary)
+        }
+        Spacer()
+        Image(systemName: "arrow.up.right.square")
+          .foregroundStyle(.secondary)
+      }
+      .contentShape(Rectangle())
+    }
+    .buttonStyle(.plain)
+    .help("Open Agentcloud session \(session.title)")
   }
 }
 
@@ -356,14 +593,10 @@ private struct ReservationRow: View {
             .foregroundStyle(.secondary)
         }
         if !agentcloudSessions.isEmpty {
-          Label(
-            "\(agentcloudSessions.count) Agentcloud "
-              + (agentcloudSessions.count == 1 ? "session" : "sessions") + " running",
-            systemImage: "bolt.horizontal.circle"
-          )
-          .font(.caption2)
-          .foregroundStyle(.secondary)
-          .help(agentcloudUsageSummary)
+          Label(agentcloudBadgeText, systemImage: "bolt.horizontal.circle")
+            .font(.caption2)
+            .foregroundStyle(.secondary)
+            .help(agentcloudUsageSummary)
         }
       }
       Spacer()
@@ -387,6 +620,16 @@ private struct ReservationRow: View {
     .padding(10)
     .background(.quaternary.opacity(0.45), in: RoundedRectangle(cornerRadius: 10))
     .help(agentcloudUsageSummary)
+  }
+
+  private var agentcloudBadgeText: String {
+    let runningCount = agentcloudSessions.filter(\.running).count
+    if runningCount > 0 {
+      return "\(runningCount) Agentcloud \(runningCount == 1 ? "session" : "sessions") running"
+    }
+    return
+      "\(agentcloudSessions.count) Agentcloud "
+      + (agentcloudSessions.count == 1 ? "session" : "sessions") + " attached"
   }
 
   private func expirationColor(at date: Date) -> Color {

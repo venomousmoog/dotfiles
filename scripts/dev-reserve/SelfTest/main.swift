@@ -26,7 +26,7 @@ private struct AgentcloudStubRunner: CommandRunning {
   ) throws -> CommandOutput {
     let stdout: String
     switch arguments {
-    case AgentcloudCommands.runningFleet:
+    case AgentcloudCommands.recentFleet:
       stdout = fleetJSON
     case AgentcloudCommands.nodeRoster:
       guard let nodeJSON else {
@@ -342,6 +342,8 @@ private func runAgentcloudTests(_ tests: inout TestContext) throws {
         "session_id": "session-active",
         "title": "Active\nwork",
         "running": true,
+        "last_event_unix_ms": 1000,
+        "last_seq": 1,
         "attached_nodes": [
           "friendly-node-id",
           "devvm33020.atn0.facebook.com"
@@ -351,12 +353,32 @@ private func runAgentcloudTests(_ tests: inout TestContext) throws {
         "session_id": "session-idle",
         "title": "Idle work",
         "running": false,
+        "last_event_unix_ms": 2000,
+        "last_seq": 10,
+        "attached_nodes": ["friendly-node-id"]
+      },
+      {
+        "session_id": "session-idle-low-seq",
+        "title": "Earlier sequence",
+        "running": false,
+        "last_event_unix_ms": 2000,
+        "last_seq": 5,
+        "attached_nodes": ["friendly-node-id"]
+      },
+      {
+        "session_id": "session-zero-event",
+        "title": "Unknown activity",
+        "running": false,
+        "last_event_unix_ms": 0,
+        "last_seq": 999,
         "attached_nodes": ["friendly-node-id"]
       },
       {
         "session_id": "session-other",
         "title": "Other node",
         "running": true,
+        "last_event_unix_ms": 3000,
+        "last_seq": 2,
         "attached_nodes": ["devgpu069.vll3.facebook.com"]
       }
     ]
@@ -365,7 +387,30 @@ private func runAgentcloudTests(_ tests: inout TestContext) throws {
     [
       {
         "node_id": "friendly-node-id",
-        "instance": {"host": "devvm33020.atn0.facebook.com"}
+        "instance": {"host": "devvm33020.atn0.facebook.com"},
+        "lease": {
+          "holder_session": "session-other",
+          "expires_at_unix_ms": 1893456000000,
+          "held_by_this_session": false
+        }
+      },
+      {
+        "node_id": "leased-node",
+        "instance": {"host": "devgpu013.cco5.facebook.com"},
+        "lease": {
+          "holder_session": "session-idle",
+          "expires_at_unix_ms": 1893456000000,
+          "held_by_this_session": false
+        }
+      },
+      {
+        "node_id": "unresolved-lease-node",
+        "instance": {"host": "devvm999.example.com"},
+        "lease": {
+          "holder_session": "missing-holder-session",
+          "expires_at_unix_ms": 1893456000000,
+          "held_by_this_session": false
+        }
       }
     ]
     """#
@@ -375,29 +420,106 @@ private func runAgentcloudTests(_ tests: inout TestContext) throws {
   let snapshot = try cli.loadUsage()
   let matchedSessions = snapshot.sessions(for: "DEVVM33020.ATN0.FACEBOOK.COM")
   try tests.expect(
-    matchedSessions.map(\.id) == ["session-active"],
-    "expected node aliases and full hostnames to deduplicate the running session"
+    matchedSessions.map(\.id)
+      == [
+        "session-active",
+        "session-idle",
+        "session-idle-low-seq",
+        "session-zero-event",
+      ],
+    "expected canonical running/activity/sequence ordering with aliases deduplicated"
   )
   try tests.expect(
     matchedSessions[0].title == "Active work",
     "expected session titles to be safe for one-line tooltips"
   )
   try tests.expect(
+    matchedSessions[0].running && !matchedSessions[1].running
+      && !matchedSessions[2].running && !matchedSessions[3].running,
+    "expected running and idle attachment state to survive parsing"
+  )
+  try tests.expect(
+    matchedSessions[3].lastActivityAt == nil,
+    "expected a nonpositive activity timestamp to remain unknown"
+  )
+  try tests.expect(
     snapshot.sessions(for: "devgpu069.vll3").map(\.id) == ["session-other"],
     "expected direct hostname matching without a roster alias"
   )
+
+  var attachedAttributionIsCorrect = false
+  if case .attached(let primary, let others) = snapshot.attribution(for: "devvm33020.atn0") {
+    attachedAttributionIsCorrect =
+      primary.id == "session-active"
+      && others.map(\.id)
+        == ["session-idle", "session-idle-low-seq", "session-zero-event"]
+  }
   try tests.expect(
-    snapshot.sessions(for: "unused.example.com").isEmpty,
-    "expected an empty usage list for an unmatched host"
+    attachedAttributionIsCorrect,
+    "expected direct attachment evidence to outrank the lease holder claim"
+  )
+
+  var holderAttributionIsCorrect = false
+  if case .holder(let session, let lease) = snapshot.attribution(for: "devgpu013.cco5") {
+    holderAttributionIsCorrect =
+      session?.id == "session-idle" && lease.holderSessionID == "session-idle"
+  }
+  try tests.expect(
+    holderAttributionIsCorrect,
+    "expected a lease holder fallback when no attachment is visible"
+  )
+  var unresolvedHolderIsPreserved = false
+  if case .holder(let session, let lease) = snapshot.attribution(for: "devvm999.example.com") {
+    unresolvedHolderIsPreserved =
+      session == nil && lease.holderSessionID == "missing-holder-session"
+  }
+  try tests.expect(
+    unresolvedHolderIsPreserved,
+    "expected an unresolved lease holder ID to remain available for linking"
   )
   try tests.expect(
-    AgentcloudCommands.runningFleet
-      == ["fleet", "--sort", "recent", "--running", "--limit", "200"],
-    "expected a bounded running-session fleet request"
+    AgentcloudSessionLink.url(for: "missing-holder-session")?.absoluteString
+      == "https://agentcloud.internalmeta.com/missing-holder-session",
+    "expected a canonical Agentcloud session URL"
+  )
+
+  let leaseExpiry = try Date("2026-07-17T02:32:00Z", strategy: .iso8601)
+  try tests.expect(
+    AgentcloudLeaseText.label(
+      expiresAt: leaseExpiry,
+      now: leaseExpiry.addingTimeInterval(-((60 + 32) * 60))
+    ) == "lease 1h32m left (expires 2026-07-17 02:32Z)",
+    "expected remaining and absolute UTC lease timing"
+  )
+  try tests.expect(
+    AgentcloudLeaseText.label(
+      expiresAt: leaseExpiry,
+      now: leaseExpiry.addingTimeInterval(12 * 60)
+    ) == "lease expired 12m ago",
+    "expected an explicit expired lease duration"
+  )
+  try tests.expect(
+    AgentcloudLeaseText.label(expiresAt: Date(timeIntervalSince1970: 0))
+      == "lease expiry unknown",
+    "expected a nonpositive lease expiry to remain unknown"
+  )
+
+  try tests.expect(
+    snapshot.attribution(for: "unused.example.com") == .unknown,
+    "expected unknown rather than an unsupported claim that a host is free"
+  )
+  try tests.expect(
+    snapshot.isAdvertised("devgpu013.cco5.facebook.com"),
+    "expected roster presence to survive hostname normalization"
+  )
+  try tests.expect(
+    AgentcloudCommands.recentFleet
+      == ["fleet", "--sort", "recent", "--limit", "500"],
+    "expected a bounded recent-session fleet request"
   )
   try tests.expect(
     AgentcloudCommands.nodeRoster == ["node", "list"],
-    "expected node aliases to come from the supported roster command"
+    "expected node aliases and leases to come from the supported roster command"
   )
   var rejectedMissingRoster = false
   do {
@@ -512,14 +634,12 @@ private func runLiveInventoryTest(_ tests: inout TestContext) throws {
     throw AgentcloudCLIError.executableNotFound
   }
   let usage = try AgentcloudCLI().loadUsage()
-  let sessionIDs = Set(
-    usage.sessionsByHostname.values.flatMap { sessions in
-      sessions.map(\.id)
-    }
-  )
+  let allSessions = usage.sessionsByHostname.values.flatMap { $0 }
+  let sessionIDs = Set(allSessions.map(\.id))
+  let runningSessionIDs = Set(allSessions.filter(\.running).map(\.id))
   print(
-    "Agentcloud usage: \(sessionIDs.count) running sessions across "
-      + "\(usage.sessionsByHostname.count) nodes"
+    "Agentcloud usage: \(runningSessionIDs.count) running / \(sessionIDs.count) attached "
+      + "sessions across \(usage.sessionsByHostname.count) nodes"
   )
 }
 

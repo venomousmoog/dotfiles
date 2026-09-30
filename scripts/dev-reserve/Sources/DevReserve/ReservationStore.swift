@@ -8,6 +8,7 @@ final class ReservationStore: ObservableObject {
   enum Surface: String, CaseIterable, Identifiable {
     case reservations = "Reservations"
     case reserve = "Reserve"
+    case agentcloud = "Agentcloud"
 
     var id: String { rawValue }
   }
@@ -20,6 +21,7 @@ final class ReservationStore: ObservableObject {
   @Published var selectedOptionID: String?
   @Published var reservationDuration = ReservationDuration.sixDays
   @Published var sessionName = ""
+  @Published var expandedAgentcloudHostIDs: Set<String> = []
   @Published private(set) var favoriteOptionIDs: Set<String> = []
   @Published private(set) var reservations: [DevReservation] = []
   @Published private(set) var shortTermLeases: [DevReservation] = []
@@ -43,6 +45,7 @@ final class ReservationStore: ObservableObject {
   private let notifier: ReservationNotifier
   private let startupError: String?
   private var refreshLoop: Task<Void, Never>?
+  private var agentcloudRefreshLoop: Task<Void, Never>?
   private var agentcloudRefreshTask: Task<Void, Never>?
   private var reserveTask: Task<Void, Never>?
   private var releaseTask: Task<Void, Never>?
@@ -69,6 +72,7 @@ final class ReservationStore: ObservableObject {
 
   deinit {
     refreshLoop?.cancel()
+    agentcloudRefreshLoop?.cancel()
     agentcloudRefreshTask?.cancel()
     reserveTask?.cancel()
     releaseTask?.cancel()
@@ -93,28 +97,77 @@ final class ReservationStore: ObservableObject {
     isValidSessionName(sessionName)
   }
 
+  var agentcloudHosts: [DevReservation] {
+    let allHosts = reservations + shortTermLeases + devservers
+    let uniqueHosts = Dictionary(grouping: allHosts, by: \.hostname)
+      .values
+      .compactMap(\.first)
+    return uniqueHosts.sorted { left, right in
+      let leftRank = agentcloudRank(for: left.hostname)
+      let rightRank = agentcloudRank(for: right.hostname)
+      if leftRank != rightRank {
+        return leftRank < rightRank
+      }
+      return left.hostname.localizedCaseInsensitiveCompare(right.hostname) == .orderedAscending
+    }
+  }
+
   func agentcloudSessions(using hostname: String) -> [AgentcloudSessionUsage] {
     agentcloudUsage.sessions(for: hostname)
   }
 
+  func agentcloudAttribution(for hostname: String) -> AgentcloudNodeAttribution {
+    agentcloudUsage.attribution(for: hostname)
+  }
+
   func agentcloudUsageSummary(for hostname: String) -> String {
-    let sessions = agentcloudSessions(using: hostname)
-    if !sessions.isEmpty {
-      let shownSessions = sessions.prefix(8).map { session in
-        "• \(session.title) [\(session.id.prefix(8))]"
-      }
-      let remainder = sessions.count - shownSessions.count
-      let suffix = remainder > 0 ? "\n• and \(remainder) more" : ""
-      return "Running Agentcloud sessions (\(sessions.count)):\n"
-        + shownSessions.joined(separator: "\n") + suffix
-    }
-    if isRefreshingAgentcloud {
-      return "Loading running Agentcloud sessions…"
-    }
     if let agentcloudUsageError {
       return "Agentcloud usage unavailable: \(agentcloudUsageError)"
     }
-    return "No running Agentcloud sessions attached to this node."
+    if isRefreshingAgentcloud && agentcloudUsage.advertisedHostnames.isEmpty {
+      return "Loading Agentcloud node usage…"
+    }
+
+    switch agentcloudAttribution(for: hostname) {
+    case .attached(let primary, let others):
+      let sessions = [primary] + others
+      let shownSessions = sessions.prefix(8).map { session in
+        let marker = session.running ? "●" : "○"
+        return "\(marker) \(session.title) [\(session.id.prefix(8))]"
+      }
+      let remainder = sessions.count - shownSessions.count
+      let suffix = remainder > 0 ? "\n• and \(remainder) more" : ""
+      let heading = primary.running ? "Using this node now" : "Attached sessions"
+      return "\(heading) (\(sessions.count)):\n"
+        + shownSessions.joined(separator: "\n") + suffix
+    case .holder(let session, let lease):
+      let title = session?.title ?? String(lease.holderSessionID.prefix(8))
+      return "Reserved by \(title) [\(lease.holderSessionID.prefix(8))]\n"
+        + AgentcloudLeaseText.label(expiresAt: lease.expiresAt)
+    case .unknown:
+      return
+        "Usage unknown. No listed session names this node and no Agentcloud lease identifies a holder; an unlisted session may still be using it."
+    }
+  }
+
+  func isAgentcloudHostExpanded(_ hostname: String) -> Bool {
+    expandedAgentcloudHostIDs.contains(AgentcloudUsageSnapshot.normalizeNodeID(hostname))
+  }
+
+  func toggleAgentcloudHost(_ hostname: String) {
+    let id = AgentcloudUsageSnapshot.normalizeNodeID(hostname)
+    if expandedAgentcloudHostIDs.contains(id) {
+      expandedAgentcloudHostIDs.remove(id)
+    } else {
+      expandedAgentcloudHostIDs.insert(id)
+    }
+  }
+
+  func openAgentcloudSession(_ sessionID: String) {
+    guard let url = AgentcloudSessionLink.url(for: sessionID) else {
+      return
+    }
+    NSWorkspace.shared.open(url)
   }
 
   func start() {
@@ -130,7 +183,16 @@ final class ReservationStore: ObservableObject {
         guard !Task.isCancelled else {
           return
         }
-        self?.refresh()
+        await self?.refreshNow()
+      }
+    }
+    agentcloudRefreshLoop = Task { [weak self] in
+      while !Task.isCancelled {
+        try? await Task.sleep(for: .seconds(300))
+        guard !Task.isCancelled else {
+          return
+        }
+        await self?.refreshAgentcloudUsageNow()
       }
     }
   }
@@ -465,6 +527,17 @@ final class ReservationStore: ObservableObject {
       restoreSelectionIfPossible()
     } catch {
       refreshError = error.localizedDescription
+    }
+  }
+
+  private func agentcloudRank(for hostname: String) -> Int {
+    switch agentcloudAttribution(for: hostname) {
+    case .attached(let primary, _):
+      return primary.running ? 0 : 2
+    case .holder:
+      return 1
+    case .unknown:
+      return 3
     }
   }
 
