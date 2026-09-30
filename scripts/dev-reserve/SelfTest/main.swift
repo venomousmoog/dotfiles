@@ -429,6 +429,16 @@ private func runAgentcloudTests(_ tests: inout TestContext) throws {
       ],
     "expected canonical running/activity/sequence ordering with aliases deduplicated"
   )
+  let sessionGroups = AgentcloudSessionGroups(matchedSessions)
+  try tests.expect(
+    sessionGroups.working.map(\.id) == ["session-active"],
+    "expected every working session to stay in the always-visible group"
+  )
+  try tests.expect(
+    sessionGroups.attached.map(\.id)
+      == ["session-idle", "session-idle-low-seq", "session-zero-event"],
+    "expected the attached expander count to include only non-working sessions"
+  )
   try tests.expect(
     matchedSessions[0].title == "Active work",
     "expected session titles to be safe for one-line tooltips"

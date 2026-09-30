@@ -8,7 +8,6 @@ final class ReservationStore: ObservableObject {
   enum Surface: String, CaseIterable, Identifiable {
     case reservations = "Reservations"
     case reserve = "Reserve"
-    case agentcloud = "Agentcloud"
 
     var id: String { rawValue }
   }
@@ -95,21 +94,6 @@ final class ReservationStore: ObservableObject {
 
   var sessionNameIsValid: Bool {
     isValidSessionName(sessionName)
-  }
-
-  var agentcloudHosts: [DevReservation] {
-    let allHosts = reservations + shortTermLeases + devservers
-    let uniqueHosts = Dictionary(grouping: allHosts, by: \.hostname)
-      .values
-      .compactMap(\.first)
-    return uniqueHosts.sorted { left, right in
-      let leftRank = agentcloudRank(for: left.hostname)
-      let rightRank = agentcloudRank(for: right.hostname)
-      if leftRank != rightRank {
-        return leftRank < rightRank
-      }
-      return left.hostname.localizedCaseInsensitiveCompare(right.hostname) == .orderedAscending
-    }
   }
 
   func agentcloudSessions(using hostname: String) -> [AgentcloudSessionUsage] {
@@ -527,17 +511,6 @@ final class ReservationStore: ObservableObject {
       restoreSelectionIfPossible()
     } catch {
       refreshError = error.localizedDescription
-    }
-  }
-
-  private func agentcloudRank(for hostname: String) -> Int {
-    switch agentcloudAttribution(for: hostname) {
-    case .attached(let primary, _):
-      return primary.running ? 0 : 2
-    case .holder:
-      return 1
-    case .unknown:
-      return 3
     }
   }
 

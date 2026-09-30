@@ -22,6 +22,16 @@ public struct AgentcloudSessionUsage: Identifiable, Equatable, Sendable {
   }
 }
 
+public struct AgentcloudSessionGroups: Equatable, Sendable {
+  public let working: [AgentcloudSessionUsage]
+  public let attached: [AgentcloudSessionUsage]
+
+  public init(_ sessions: [AgentcloudSessionUsage]) {
+    working = sessions.filter(\.running)
+    attached = sessions.filter { !$0.running }
+  }
+}
+
 public struct AgentcloudNodeLease: Equatable, Sendable {
   public let holderSessionID: String
   public let expiresAt: Date
