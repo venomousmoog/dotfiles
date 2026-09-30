@@ -102,13 +102,55 @@ private func runModelTests(_ tests: inout TestContext) throws {
     inventory.reservations[0].expiresAt != nil,
     "expected the live expires_at format to parse"
   )
+  try tests.expect(
+    inventory.reservations[0].releaseHostname == "devvm123.example.com",
+    "expected an active OD with an explicit hostname to be releasable"
+  )
   try tests.expect(inventory.devservers.count == 1, "expected duplicate devservers to collapse")
+  try tests.expect(
+    inventory.devservers[0].releaseHostname == nil,
+    "expected devservers to remain ineligible for release"
+  )
   try tests.expect(
     inventory.reservableODs.count == 1, "expected disabled and zero-capacity ODs to be hidden")
   try tests.expect(inventory.reservableODs[0].spec == "www", "expected the parsed OD spec")
   try tests.expect(
     inventory.reservableODs[0].hardwareOption == "Default",
     "expected the parsed hardware option"
+  )
+
+  let ineligibleReleaseJSON = #"""
+    {
+      "reserved": [
+        {
+          "is_disabled": false,
+          "name": "Fallback display name",
+          "status": "Active",
+          "type": "fbsource:default"
+        },
+        {
+          "hostname": "pending.od.fbinfra.net",
+          "is_disabled": false,
+          "name": "Pending OD",
+          "status": "Pending",
+          "type": "fbsource:default"
+        }
+      ],
+      "reservable": []
+    }
+    """#
+  let ineligiblePayload = try JSONDecoder().decode(
+    DevListPayload.self,
+    from: Data(ineligibleReleaseJSON.utf8)
+  )
+  let ineligibleInventory = DevInventory(payload: ineligiblePayload)
+  try tests.expect(
+    ineligibleInventory.reservations[0].releaseHostname == nil,
+    "expected a display-name fallback to remain ineligible for release"
+  )
+  try tests.expect(
+    ineligibleInventory.reservations[1].releaseHostname == nil,
+    "expected a non-active OD to remain ineligible for release"
   )
 
   let malformed = DevCLI(
@@ -140,11 +182,54 @@ private func runCommandTests(_ tests: inout TestContext) throws {
     ReservableOD(rawType: "od:--help", name: "Bad", status: "") == nil,
     "expected leading-dash specs to be rejected"
   )
+  guard
+    let alphabeticOption = ReservableOD(
+      rawType: "od:alpha",
+      name: "Alpha",
+      status: "Available: 1"
+    )
+  else {
+    throw SelfTestFailure(description: "expected a second valid reservable OD")
+  }
+  let prioritized = prioritizeReservableODs(
+    [alphabeticOption, option],
+    favorites: [option.id],
+    matching: ""
+  )
+  try tests.expect(
+    prioritized.map(\.id) == [option.id, alphabeticOption.id],
+    "expected favorites before alphabetical options"
+  )
+  try tests.expect(
+    prioritizeReservableODs(
+      [option, alphabeticOption],
+      favorites: [option.id],
+      matching: "alpha"
+    ).map(\.id) == [alphabeticOption.id],
+    "expected search to filter favorites and regular options alike"
+  )
 
-  let command = DevCommands.reserve(option: option, sessionName: "long_term")
+  let command = DevCommands.reserve(
+    option: option,
+    sessionName: "long_term",
+    duration: .sixDays
+  )
   try tests.expect(
     command.windows(ofCount: 2).contains(["--expiration", "6"]),
-    "expected a six-day request"
+    "expected the default six-day request"
+  )
+  try tests.expect(
+    ReservationDuration.allCases.map(\.rawValue) == [1, 2, 3, 6],
+    "expected only CLI-supported reservation durations"
+  )
+  let twoDayCommand = DevCommands.reserve(
+    option: option,
+    sessionName: "",
+    duration: .twoDays
+  )
+  try tests.expect(
+    twoDayCommand.windows(ofCount: 2).contains(["--expiration", "2"]),
+    "expected the selected duration in the request"
   )
   for requiredFlag in [
     "--no-connect",
@@ -172,6 +257,18 @@ private func runCommandTests(_ tests: inout TestContext) throws {
     DevCommands.inventory == ["-q", "list", "--with-reservable", "--json"],
     "expected the read-only inventory command"
   )
+  let releaseCommand = try DevCommands.release(hostname: "1234.od.fbinfra.net")
+  try tests.expect(
+    releaseCommand == ["-q", "release", "--hostname", "1234.od.fbinfra.net"],
+    "expected a non-interactive single-host release command"
+  )
+  var rejectedUnsafeHostname = false
+  do {
+    _ = try DevCommands.release(hostname: "--all")
+  } catch DevCLIError.invalidResponse {
+    rejectedUnsafeHostname = true
+  }
+  try tests.expect(rejectedUnsafeHostname, "expected unsafe release hostnames to be rejected")
 
   let emptyOutputCLI = DevCLI(
     runner: StubRunner(
@@ -180,11 +277,17 @@ private func runCommandTests(_ tests: inout TestContext) throws {
   )
   let emptyReservationMessage = try emptyOutputCLI.reserve(
     option: option,
-    sessionName: ""
+    sessionName: "",
+    duration: .sixDays
   )
   try tests.expect(
     emptyReservationMessage == "Reservation completed.",
     "expected the empty-output success fallback"
+  )
+  let emptyReleaseMessage = try emptyOutputCLI.release(hostname: "1234.od.fbinfra.net")
+  try tests.expect(
+    emptyReleaseMessage == "Released 1234.od.fbinfra.net.",
+    "expected the empty-output release fallback"
   )
 }
 
@@ -220,6 +323,18 @@ private func runFormattingTests(_ tests: inout TestContext) throws {
   try tests.expect(
     !isValidSessionName(String(repeating: "a", count: 65)),
     "expected overlong session names to be rejected"
+  )
+  try tests.expect(
+    isValidReleaseHostname("1234.od.fbinfra.net"),
+    "expected a normal OD hostname to be releasable"
+  )
+  try tests.expect(
+    !isValidReleaseHostname("--all"),
+    "expected a leading-dash release hostname to be rejected"
+  )
+  try tests.expect(
+    !isValidReleaseHostname("host name"),
+    "expected whitespace in a release hostname to be rejected"
   )
 
   let now = Date(timeIntervalSince1970: 1_000)

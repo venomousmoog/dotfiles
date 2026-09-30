@@ -13,16 +13,21 @@ final class ReservationStore: ObservableObject {
   }
 
   private static let lastSelectedOptionKey = "lastSelectedOptionID"
+  private static let favoriteOptionIDsKey = "favoriteOptionIDs"
 
   @Published var surface = Surface.reservations
   @Published var searchText = ""
   @Published var selectedOptionID: String?
+  @Published var reservationDuration = ReservationDuration.sixDays
   @Published var sessionName = ""
+  @Published private(set) var favoriteOptionIDs: Set<String> = []
   @Published private(set) var reservations: [DevReservation] = []
   @Published private(set) var devservers: [DevReservation] = []
   @Published private(set) var reservableODs: [ReservableOD] = []
   @Published private(set) var isRefreshing = false
   @Published private(set) var isReserving = false
+  @Published private(set) var releasingHostname: String?
+  @Published private(set) var pendingRelease: DevReservation?
   @Published private(set) var lastUpdated: Date?
   @Published private(set) var statusMessage: String?
   @Published private(set) var operationError: String?
@@ -33,11 +38,15 @@ final class ReservationStore: ObservableObject {
   private let startupError: String?
   private var refreshLoop: Task<Void, Never>?
   private var reserveTask: Task<Void, Never>?
+  private var releaseTask: Task<Void, Never>?
   private var hasStarted = false
   private var refreshRequested = false
 
   init(cli: DevCLI? = try? DevCLI()) {
     self.cli = cli
+    favoriteOptionIDs = Set(
+      UserDefaults.standard.stringArray(forKey: Self.favoriteOptionIDsKey) ?? []
+    )
     startupError =
       cli == nil
       ? DevCLIError.executableNotFound.localizedDescription
@@ -47,17 +56,15 @@ final class ReservationStore: ObservableObject {
   deinit {
     refreshLoop?.cancel()
     reserveTask?.cancel()
+    releaseTask?.cancel()
   }
 
   var filteredOptions: [ReservableOD] {
-    let query = searchText.trimmingCharacters(in: .whitespacesAndNewlines)
-    guard !query.isEmpty else {
-      return reservableODs
-    }
-    return reservableODs.filter {
-      $0.name.localizedCaseInsensitiveContains(query)
-        || $0.spec.localizedCaseInsensitiveContains(query)
-    }
+    prioritizeReservableODs(
+      reservableODs,
+      favorites: favoriteOptionIDs,
+      matching: searchText
+    )
   }
 
   var selectedOption: ReservableOD? {
@@ -107,6 +114,22 @@ final class ReservationStore: ObservableObject {
     )
   }
 
+  func isFavorite(_ option: ReservableOD) -> Bool {
+    favoriteOptionIDs.contains(option.id)
+  }
+
+  func toggleFavorite(_ option: ReservableOD) {
+    if favoriteOptionIDs.contains(option.id) {
+      favoriteOptionIDs.remove(option.id)
+    } else {
+      favoriteOptionIDs.insert(option.id)
+    }
+    UserDefaults.standard.set(
+      favoriteOptionIDs.sorted(),
+      forKey: Self.favoriteOptionIDsKey
+    )
+  }
+
   func reserveSelected() {
     guard let cli else {
       operationError = startupError
@@ -124,11 +147,17 @@ final class ReservationStore: ObservableObject {
     guard !isReserving else {
       return
     }
+    guard releasingHostname == nil else {
+      operationError = "Wait for the active release to finish."
+      return
+    }
 
     let requestedName = sessionName
+    let requestedDuration = reservationDuration
     isReserving = true
     operationError = nil
-    statusMessage = "Requesting a six-day \(option.spec) reservation. Approve the Duo push."
+    statusMessage =
+      "Requesting a \(requestedDuration.label) \(option.spec) reservation. Approve the Duo push."
 
     reserveTask = Task { [weak self] in
       guard let self else {
@@ -140,7 +169,11 @@ final class ReservationStore: ObservableObject {
       }
 
       let worker = Task.detached(priority: .userInitiated) {
-        try cli.reserve(option: option, sessionName: requestedName)
+        try cli.reserve(
+          option: option,
+          sessionName: requestedName,
+          duration: requestedDuration
+        )
       }
       do {
         let message = try await withTaskCancellationHandler {
@@ -176,6 +209,94 @@ final class ReservationStore: ObservableObject {
     reserveTask?.cancel()
   }
 
+  func requestRelease(_ reservation: DevReservation) {
+    guard releasingHostname == nil, !isReserving else {
+      return
+    }
+    guard
+      let releaseHostname = reservation.releaseHostname,
+      reservations.contains(where: {
+        $0.id == reservation.id && $0.releaseHostname == releaseHostname
+      })
+    else {
+      operationError = "This reservation is no longer eligible for release. Refresh and try again."
+      return
+    }
+    pendingRelease = reservation
+  }
+
+  func cancelRelease() {
+    pendingRelease = nil
+  }
+
+  func confirmRelease(_ reservation: DevReservation) {
+    pendingRelease = nil
+    guard
+      let releaseHostname = reservation.releaseHostname,
+      reservations.contains(where: {
+        $0.id == reservation.id && $0.releaseHostname == releaseHostname
+      })
+    else {
+      operationError = "This reservation is no longer active. Refresh and try again."
+      return
+    }
+    release(hostname: releaseHostname)
+  }
+
+  private func release(hostname: String) {
+    guard let cli else {
+      operationError = startupError
+      return
+    }
+    guard !isReserving else {
+      operationError = "Wait for the active reservation request to finish."
+      return
+    }
+    guard releasingHostname == nil else {
+      return
+    }
+
+    releasingHostname = hostname
+    operationError = nil
+    statusMessage = "Releasing \(hostname)…"
+
+    releaseTask = Task { [weak self] in
+      guard let self else {
+        return
+      }
+      defer {
+        releasingHostname = nil
+        releaseTask = nil
+      }
+
+      let worker = Task.detached(priority: .userInitiated) {
+        try cli.release(hostname: hostname)
+      }
+      do {
+        let message = try await withTaskCancellationHandler {
+          try await worker.value
+        } onCancel: {
+          worker.cancel()
+        }
+        statusMessage = message
+        reservations.removeAll { $0.releaseHostname == hostname }
+        await refreshAfterMutation()
+      } catch DevCLIError.cancelled {
+        statusMessage = DevCLIError.cancelled.localizedDescription
+        operationError = nil
+        await refreshAfterMutation()
+      } catch is CancellationError {
+        statusMessage = DevCLIError.cancelled.localizedDescription
+        operationError = nil
+        await refreshAfterMutation()
+      } catch {
+        statusMessage = nil
+        operationError = error.localizedDescription
+        await refreshAfterMutation()
+      }
+    }
+  }
+
   func copyHostname(_ hostname: String) {
     NSPasteboard.general.clearContents()
     NSPasteboard.general.setString(hostname, forType: .string)
@@ -195,6 +316,16 @@ final class ReservationStore: ObservableObject {
 
   func quit() {
     NSApplication.shared.terminate(nil)
+  }
+
+  private func refreshAfterMutation() async {
+    while isRefreshing, !Task.isCancelled {
+      try? await Task.sleep(for: .milliseconds(50))
+    }
+    guard !Task.isCancelled else {
+      return
+    }
+    await refreshNow()
   }
 
   private func refreshNow() async {

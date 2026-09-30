@@ -31,7 +31,29 @@ struct DevReserveView: View {
       footer
     }
     .padding(16)
-    .frame(width: 460, height: 560)
+    .frame(width: 460, height: 590)
+    .confirmationDialog(
+      "Release reservation?",
+      isPresented: Binding(
+        get: { store.pendingRelease != nil },
+        set: { isPresented in
+          if !isPresented {
+            store.cancelRelease()
+          }
+        }
+      ),
+      titleVisibility: .visible,
+      presenting: store.pendingRelease
+    ) { reservation in
+      Button("Release \(reservation.hostname)", role: .destructive) {
+        store.confirmRelease(reservation)
+      }
+      Button("Cancel", role: .cancel) {
+        store.cancelRelease()
+      }
+    } message: { reservation in
+      Text("This immediately releases \(reservation.name). This action cannot be undone.")
+    }
   }
 
   private var header: some View {
@@ -74,7 +96,7 @@ struct DevReserveView: View {
         ContentUnavailableView(
           "No hosts found",
           systemImage: "server.rack",
-          description: Text("Reserve a six-day OD from the Reserve tab.")
+          description: Text("Reserve an OD from the Reserve tab.")
         )
       } else {
         ScrollView {
@@ -82,12 +104,14 @@ struct DevReserveView: View {
             hostSection(
               title: "Active OD reservations",
               hosts: store.reservations,
-              showsExpiration: true
+              showsExpiration: true,
+              allowsRelease: true
             )
             hostSection(
               title: "Devservers",
               hosts: store.devservers,
-              showsExpiration: false
+              showsExpiration: false,
+              allowsRelease: false
             )
           }
         }
@@ -99,7 +123,8 @@ struct DevReserveView: View {
   private func hostSection(
     title: String,
     hosts: [DevReservation],
-    showsExpiration: Bool
+    showsExpiration: Bool,
+    allowsRelease: Bool
   ) -> some View {
     if !hosts.isEmpty {
       Text("\(title) · \(hosts.count)")
@@ -109,8 +134,14 @@ struct DevReserveView: View {
         ReservationRow(
           reservation: host,
           showsExpiration: showsExpiration,
+          allowsRelease: allowsRelease && host.releaseHostname != nil,
+          isReleasing: store.releasingHostname == host.hostname,
+          releaseDisabled: store.releasingHostname != nil || store.isReserving,
           copyHostname: {
             store.copyHostname(host.hostname)
+          },
+          requestRelease: {
+            store.requestRelease(host)
           }
         )
       }
@@ -120,7 +151,7 @@ struct DevReserveView: View {
   private var reserveView: some View {
     VStack(alignment: .leading, spacing: 10) {
       Label(
-        "Creates a six-day OD and sends a Duo push. DevEnv owns the lease after allocation.",
+        "Choose 1, 2, 3, or 6 days, then approve the Duo push. DevEnv owns the lease after allocation.",
         systemImage: "calendar.badge.clock"
       )
       .font(.caption)
@@ -135,7 +166,9 @@ struct DevReserveView: View {
             ReservableRow(
               option: option,
               selected: option.id == store.selectedOptionID,
-              select: { store.select(option) }
+              favorite: store.isFavorite(option),
+              select: { store.select(option) },
+              toggleFavorite: { store.toggleFavorite(option) }
             )
           }
         }
@@ -163,6 +196,13 @@ struct DevReserveView: View {
         }
       }
 
+      Picker("Reservation duration", selection: $store.reservationDuration) {
+        ForEach(ReservationDuration.allCases) { duration in
+          Text(duration.label).tag(duration)
+        }
+      }
+      .pickerStyle(.segmented)
+
       TextField("Optional session name", text: $store.sessionName)
         .textFieldStyle(.roundedBorder)
       if !store.sessionNameIsValid {
@@ -187,13 +227,14 @@ struct DevReserveView: View {
         Button {
           store.reserveSelected()
         } label: {
-          Text("Reserve for 6 days")
+          Text("Reserve for \(store.reservationDuration.label)")
             .frame(maxWidth: .infinity)
         }
         .buttonStyle(.borderedProminent)
         .disabled(
           store.selectedOption == nil
             || !store.sessionNameIsValid
+            || store.releasingHostname != nil
         )
       }
     }
@@ -248,7 +289,11 @@ struct DevReserveView: View {
 private struct ReservationRow: View {
   let reservation: DevReservation
   let showsExpiration: Bool
+  let allowsRelease: Bool
+  let isReleasing: Bool
+  let releaseDisabled: Bool
   let copyHostname: () -> Void
+  let requestRelease: () -> Void
 
   var body: some View {
     HStack(alignment: .top, spacing: 10) {
@@ -286,11 +331,30 @@ private struct ReservationRow: View {
         }
       }
       Spacer()
-      Button(action: copyHostname) {
-        Image(systemName: "doc.on.doc")
+      VStack(spacing: 8) {
+        Button(action: copyHostname) {
+          Image(systemName: "doc.on.doc")
+        }
+        .buttonStyle(.borderless)
+        .help("Copy hostname")
+
+        if allowsRelease {
+          if isReleasing {
+            ProgressView()
+              .controlSize(.small)
+              .help("Releasing reservation")
+          } else {
+            Button(action: requestRelease) {
+              Image(systemName: "trash")
+                .foregroundStyle(.red)
+            }
+            .buttonStyle(.borderless)
+            .disabled(releaseDisabled)
+            .help("Release reservation")
+            .accessibilityLabel("Release reservation")
+          }
+        }
       }
-      .buttonStyle(.borderless)
-      .help("Copy hostname")
     }
     .padding(10)
     .background(.quaternary.opacity(0.45), in: RoundedRectangle(cornerRadius: 10))
@@ -307,32 +371,45 @@ private struct ReservationRow: View {
 private struct ReservableRow: View {
   let option: ReservableOD
   let selected: Bool
+  let favorite: Bool
   let select: () -> Void
+  let toggleFavorite: () -> Void
 
   var body: some View {
-    Button(action: select) {
-      HStack(spacing: 8) {
-        Image(systemName: selected ? "checkmark.circle.fill" : "circle")
-          .foregroundStyle(selected ? Color.accentColor : Color.secondary)
-        VStack(alignment: .leading, spacing: 2) {
-          Text(option.name)
+    HStack(spacing: 8) {
+      Button(action: select) {
+        HStack(spacing: 8) {
+          Image(systemName: selected ? "checkmark.circle.fill" : "circle")
+            .foregroundStyle(selected ? Color.accentColor : Color.secondary)
+          VStack(alignment: .leading, spacing: 2) {
+            Text(option.name)
+              .lineLimit(1)
+            HStack(spacing: 6) {
+              Text(option.spec)
+                .font(.caption.monospaced())
+              Text(option.status)
+                .font(.caption)
+            }
+            .foregroundStyle(.secondary)
             .lineLimit(1)
-          HStack(spacing: 6) {
-            Text(option.spec)
-              .font(.caption.monospaced())
-            Text(option.status)
-              .font(.caption)
           }
-          .foregroundStyle(.secondary)
-          .lineLimit(1)
+          Spacer()
         }
-        Spacer()
+        .contentShape(Rectangle())
+        .frame(maxWidth: .infinity, alignment: .leading)
       }
-      .contentShape(Rectangle())
-      .padding(.vertical, 5)
-      .padding(.horizontal, 6)
+      .buttonStyle(.plain)
+
+      Button(action: toggleFavorite) {
+        Image(systemName: favorite ? "star.fill" : "star")
+          .foregroundStyle(favorite ? Color.yellow : Color.secondary)
+      }
+      .buttonStyle(.borderless)
+      .help(favorite ? "Remove from favorites" : "Add to favorites")
+      .accessibilityLabel(favorite ? "Remove from favorites" : "Add to favorites")
     }
-    .buttonStyle(.plain)
+    .padding(.vertical, 5)
+    .padding(.horizontal, 6)
     .background(
       selected ? Color.accentColor.opacity(0.12) : Color.clear,
       in: RoundedRectangle(cornerRadius: 7)

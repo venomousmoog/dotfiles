@@ -1,27 +1,33 @@
 # DevReserve
 
-A standalone native macOS menu-bar app for viewing active DevEnv reservations and reserving a selected OD for six days. It uses the local `dev` CLI directly and has no Agent Conductor dependency.
+A standalone native macOS menu-bar app for viewing and releasing active DevEnv reservations and reserving a selected OD for 1, 2, 3, or 6 days. It uses the local `dev` CLI directly and has no Agent Conductor dependency.
 
 ## Behavior
 
 - Reads inventory with `dev -q list --with-reservable --json`.
 - Shows active OD reservation countdowns and long-lived devservers.
 - Searches enabled OD types returned by DevEnv, excluding types with known zero capacity.
-- Reserves with a headless six-day `dev connect`: no shell, host setup, homedir upload, restore wait, or release prompt.
+- Persists starred OD types locally and sorts favorites to the top of the searchable list.
+- Reserves for a selected 1-, 2-, 3-, or 6-day duration, defaulting to six days, with a headless `dev connect`: no shell, host setup, homedir upload, restore wait, or release prompt.
+- Releases an active OD only after an explicit destructive confirmation, using its validated hostname to avoid an interactive prompt.
 - Stores no Duo credentials. The app asks DevEnv to send a Duo push.
-- Offers a Stop Waiting action and a 15-minute command deadline. Either outcome refreshes inventory because allocation may have completed before a later failure.
-- Does not release, renew, or keep a lease alive. DevEnv owns the six-day lease after allocation, so quitting the app does not release it.
+- Offers a Stop Waiting action and a 15-minute reservation deadline. Releases have a two-minute deadline. Either outcome refreshes inventory because the server-side operation may have completed before a later local failure.
+- Does not renew or keep a lease alive. DevEnv owns the lease after allocation, so quitting the app does not release it. Release occurs only after the user confirms the trash action for a specific active OD.
 
 The effective reservation command is:
 
 ```bash
-dev -q connect -t <type[:flavor]> --expiration 6 \
+dev -q connect -t <type[:flavor]> --expiration <1|2|3|6> \
   --no-connect --no-connection-prompt --no-release-prompt \
   --skip-host-setup --skip-homedir --restore-state-in-background \
   --yubi push --entry-point dev_cli:dev_reserve_bar
 ```
 
-The app adds `--hardware-option` and `--name` when selected.
+The app adds `--hardware-option` and `--name` when selected. An explicitly confirmed release uses:
+
+```bash
+dev -q release --hostname <hostname>
+```
 
 ## Build and test
 

@@ -29,19 +29,28 @@ public struct DevReservation: Identifiable, Equatable, Sendable {
   public let id: String
   public let name: String
   public let hostname: String
+  public let releaseHostname: String?
   public let type: String
   public let status: String
   public let created: String?
   public let expiresAt: Date?
 
   public init(entry: DevListEntry) {
-    hostname = entry.hostname ?? entry.name
+    let explicitHostname = entry.hostname?
+      .trimmingCharacters(in: .whitespacesAndNewlines)
+    hostname = explicitHostname.flatMap { $0.isEmpty ? nil : $0 } ?? entry.name
     id = hostname
     name = entry.name
     type = entry.type
     status = entry.status
     created = entry.created
     expiresAt = entry.expiresAt.flatMap(ExpirationText.parse)
+    releaseHostname =
+      !entry.type.hasPrefix("devserver:")
+        && entry.status.trimmingCharacters(in: .whitespacesAndNewlines)
+          .caseInsensitiveCompare("Active") == .orderedSame
+      ? explicitHostname.flatMap { $0.isEmpty ? nil : $0 }
+      : nil
   }
 }
 
@@ -97,6 +106,45 @@ public struct ReservableOD: Identifiable, Equatable, Sendable {
       return value.removingPercentEncoding ?? value
     }
     return nil
+  }
+}
+
+public enum ReservationDuration: Int, CaseIterable, Identifiable, Sendable {
+  case oneDay = 1
+  case twoDays = 2
+  case threeDays = 3
+  case sixDays = 6
+
+  public var id: Int { rawValue }
+
+  public var label: String {
+    "\(rawValue) \(rawValue == 1 ? "day" : "days")"
+  }
+}
+
+public func prioritizeReservableODs(
+  _ options: [ReservableOD],
+  favorites: Set<String>,
+  matching searchText: String
+) -> [ReservableOD] {
+  let query = searchText.trimmingCharacters(in: .whitespacesAndNewlines)
+  let matchingOptions = options.filter { option in
+    query.isEmpty
+      || option.name.localizedCaseInsensitiveContains(query)
+      || option.spec.localizedCaseInsensitiveContains(query)
+  }
+
+  return matchingOptions.sorted { left, right in
+    let leftIsFavorite = favorites.contains(left.id)
+    let rightIsFavorite = favorites.contains(right.id)
+    if leftIsFavorite != rightIsFavorite {
+      return leftIsFavorite
+    }
+    let nameOrder = left.name.localizedCaseInsensitiveCompare(right.name)
+    if nameOrder != .orderedSame {
+      return nameOrder == .orderedAscending
+    }
+    return left.id < right.id
   }
 }
 
@@ -196,5 +244,19 @@ public func isValidSessionName(_ name: String) -> Bool {
   }
   return name.allSatisfy { character in
     character.isASCII && (character.isLetter || character.isNumber || character == "_")
+  }
+}
+
+public func isValidReleaseHostname(_ hostname: String) -> Bool {
+  guard !hostname.isEmpty, hostname.count <= 253, !hostname.hasPrefix("-") else {
+    return false
+  }
+  return hostname.allSatisfy { character in
+    character.isASCII
+      && (character.isLetter
+        || character.isNumber
+        || character == "."
+        || character == "-"
+        || character == "_")
   }
 }

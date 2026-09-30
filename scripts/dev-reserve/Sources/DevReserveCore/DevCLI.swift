@@ -37,9 +37,10 @@ public enum DevCLIError: Error, LocalizedError, Sendable {
       return "Could not read the `dev` CLI response: \(message)"
     case .timedOut(let seconds):
       return
-        "`dev` did not finish within \(Int(seconds)) seconds. Refresh inventory to check whether allocation succeeded."
+        "`dev` did not finish within \(Int(seconds)) seconds. Refresh inventory before retrying because the operation may have completed."
     case .cancelled:
-      return "Stopped waiting for `dev`. Refresh inventory to check whether allocation succeeded."
+      return
+        "Stopped waiting for `dev`. Refresh inventory before retrying because the operation may have completed."
     }
   }
 }
@@ -176,7 +177,8 @@ public enum DevCommands {
 
   public static func reserve(
     option: ReservableOD,
-    sessionName: String
+    sessionName: String,
+    duration: ReservationDuration
   ) -> [String] {
     var arguments = [
       "-q",
@@ -184,7 +186,7 @@ public enum DevCommands {
       "-t",
       option.spec,
       "--expiration",
-      "6",
+      String(duration.rawValue),
       "--no-connect",
       "--no-connection-prompt",
       "--no-release-prompt",
@@ -204,11 +206,24 @@ public enum DevCommands {
     }
     return arguments
   }
+
+  public static func release(hostname: String) throws -> [String] {
+    guard isValidReleaseHostname(hostname) else {
+      throw DevCLIError.invalidResponse("unsafe reservation hostname")
+    }
+    return [
+      "-q",
+      "release",
+      "--hostname",
+      hostname,
+    ]
+  }
 }
 
 public struct DevCLI: Sendable {
   public static let inventoryTimeout: TimeInterval = 30
   public static let reservationTimeout: TimeInterval = 15 * 60
+  public static let releaseTimeout: TimeInterval = 2 * 60
 
   private let runner: any CommandRunning
 
@@ -242,17 +257,29 @@ public struct DevCLI: Sendable {
   @discardableResult
   public func reserve(
     option: ReservableOD,
-    sessionName: String
+    sessionName: String,
+    duration: ReservationDuration
   ) throws -> String {
     let output = try runner.run(
       arguments: DevCommands.reserve(
         option: option,
-        sessionName: sessionName
+        sessionName: sessionName,
+        duration: duration
       ),
       timeoutSeconds: Self.reservationTimeout
     )
     let message = output.stdout.trimmingCharacters(in: .whitespacesAndNewlines)
     return message.isEmpty ? "Reservation completed." : message
+  }
+
+  @discardableResult
+  public func release(hostname: String) throws -> String {
+    let output = try runner.run(
+      arguments: DevCommands.release(hostname: hostname),
+      timeoutSeconds: Self.releaseTimeout
+    )
+    let message = output.stdout.trimmingCharacters(in: .whitespacesAndNewlines)
+    return message.isEmpty ? "Released \(hostname)." : message
   }
 
   public static func locateDevExecutable(
