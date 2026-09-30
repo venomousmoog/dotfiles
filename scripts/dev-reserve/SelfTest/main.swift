@@ -16,6 +16,30 @@ private struct StubRunner: CommandRunning {
   }
 }
 
+private struct AgentcloudStubRunner: CommandRunning {
+  let fleetJSON: String
+  let nodeJSON: String?
+
+  func run(
+    arguments: [String],
+    timeoutSeconds: TimeInterval
+  ) throws -> CommandOutput {
+    let stdout: String
+    switch arguments {
+    case AgentcloudCommands.runningFleet:
+      stdout = fleetJSON
+    case AgentcloudCommands.nodeRoster:
+      guard let nodeJSON else {
+        throw AgentcloudCLIError.commandFailed("node roster unavailable")
+      }
+      stdout = nodeJSON
+    default:
+      throw AgentcloudCLIError.commandFailed("unexpected arguments: \(arguments)")
+    }
+    return CommandOutput(stdout: stdout, stderr: "", exitCode: 0)
+  }
+}
+
 private struct TestContext {
   private(set) var assertionCount = 0
 
@@ -311,6 +335,84 @@ private func runCommandTests(_ tests: inout TestContext) throws {
   )
 }
 
+private func runAgentcloudTests(_ tests: inout TestContext) throws {
+  let fleetJSON = #"""
+    [
+      {
+        "session_id": "session-active",
+        "title": "Active\nwork",
+        "running": true,
+        "attached_nodes": [
+          "friendly-node-id",
+          "devvm33020.atn0.facebook.com"
+        ]
+      },
+      {
+        "session_id": "session-idle",
+        "title": "Idle work",
+        "running": false,
+        "attached_nodes": ["friendly-node-id"]
+      },
+      {
+        "session_id": "session-other",
+        "title": "Other node",
+        "running": true,
+        "attached_nodes": ["devgpu069.vll3.facebook.com"]
+      }
+    ]
+    """#
+  let nodeJSON = #"""
+    [
+      {
+        "node_id": "friendly-node-id",
+        "instance": {"host": "devvm33020.atn0.facebook.com"}
+      }
+    ]
+    """#
+  let cli = AgentcloudCLI(
+    runner: AgentcloudStubRunner(fleetJSON: fleetJSON, nodeJSON: nodeJSON)
+  )
+  let snapshot = try cli.loadUsage()
+  let matchedSessions = snapshot.sessions(for: "DEVVM33020.ATN0.FACEBOOK.COM")
+  try tests.expect(
+    matchedSessions.map(\.id) == ["session-active"],
+    "expected node aliases and full hostnames to deduplicate the running session"
+  )
+  try tests.expect(
+    matchedSessions[0].title == "Active work",
+    "expected session titles to be safe for one-line tooltips"
+  )
+  try tests.expect(
+    snapshot.sessions(for: "devgpu069.vll3").map(\.id) == ["session-other"],
+    "expected direct hostname matching without a roster alias"
+  )
+  try tests.expect(
+    snapshot.sessions(for: "unused.example.com").isEmpty,
+    "expected an empty usage list for an unmatched host"
+  )
+  try tests.expect(
+    AgentcloudCommands.runningFleet
+      == ["fleet", "--sort", "recent", "--running", "--limit", "200"],
+    "expected a bounded running-session fleet request"
+  )
+  try tests.expect(
+    AgentcloudCommands.nodeRoster == ["node", "list"],
+    "expected node aliases to come from the supported roster command"
+  )
+  var rejectedMissingRoster = false
+  do {
+    _ = try AgentcloudCLI(
+      runner: AgentcloudStubRunner(fleetJSON: fleetJSON, nodeJSON: nil)
+    ).loadUsage()
+  } catch AgentcloudCLIError.commandFailed {
+    rejectedMissingRoster = true
+  }
+  try tests.expect(
+    rejectedMissingRoster,
+    "expected a missing node roster to make Agentcloud usage unavailable"
+  )
+}
+
 private func runProcessTests(_ tests: inout TestContext) throws {
   let shell = ProcessRunner(executableURL: URL(fileURLWithPath: "/bin/sh"))
   var preferredStderr = false
@@ -405,6 +507,20 @@ private func runLiveInventoryTest(_ tests: inout TestContext) throws {
       + "\(inventory.devservers.count) long-lived devservers, "
       + "\(inventory.reservableODs.count) reservable OD types"
   )
+
+  guard AgentcloudCLI.locateExecutable() != nil else {
+    throw AgentcloudCLIError.executableNotFound
+  }
+  let usage = try AgentcloudCLI().loadUsage()
+  let sessionIDs = Set(
+    usage.sessionsByHostname.values.flatMap { sessions in
+      sessions.map(\.id)
+    }
+  )
+  print(
+    "Agentcloud usage: \(sessionIDs.count) running sessions across "
+      + "\(usage.sessionsByHostname.count) nodes"
+  )
 }
 
 extension DevCLIError {
@@ -431,6 +547,7 @@ do {
   var tests = TestContext()
   try runModelTests(&tests)
   try runCommandTests(&tests)
+  try runAgentcloudTests(&tests)
   try runProcessTests(&tests)
   try runFormattingTests(&tests)
   if CommandLine.arguments.contains("--live") {

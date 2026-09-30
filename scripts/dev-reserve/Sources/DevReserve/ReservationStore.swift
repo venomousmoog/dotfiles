@@ -25,7 +25,9 @@ final class ReservationStore: ObservableObject {
   @Published private(set) var shortTermLeases: [DevReservation] = []
   @Published private(set) var devservers: [DevReservation] = []
   @Published private(set) var reservableODs: [ReservableOD] = []
+  @Published private(set) var agentcloudUsage = AgentcloudUsageSnapshot()
   @Published private(set) var isRefreshing = false
+  @Published private(set) var isRefreshingAgentcloud = false
   @Published private(set) var isReserving = false
   @Published private(set) var releasingHostname: String?
   @Published private(set) var pendingRelease: DevReservation?
@@ -33,18 +35,29 @@ final class ReservationStore: ObservableObject {
   @Published private(set) var statusMessage: String?
   @Published private(set) var operationError: String?
   @Published private(set) var refreshError: String?
+  @Published private(set) var agentcloudUsageError: String?
   @Published private(set) var launchAtLoginMessage: String?
 
   private let cli: DevCLI?
+  private let agentcloudCLI: AgentcloudCLI?
+  private let notifier: ReservationNotifier
   private let startupError: String?
   private var refreshLoop: Task<Void, Never>?
+  private var agentcloudRefreshTask: Task<Void, Never>?
   private var reserveTask: Task<Void, Never>?
   private var releaseTask: Task<Void, Never>?
   private var hasStarted = false
   private var refreshRequested = false
+  private var agentcloudRefreshRequested = false
 
-  init(cli: DevCLI? = try? DevCLI()) {
+  init(
+    cli: DevCLI? = try? DevCLI(),
+    agentcloudCLI: AgentcloudCLI? = try? AgentcloudCLI(),
+    notifier: ReservationNotifier = ReservationNotifier()
+  ) {
     self.cli = cli
+    self.agentcloudCLI = agentcloudCLI
+    self.notifier = notifier
     favoriteOptionIDs = Set(
       UserDefaults.standard.stringArray(forKey: Self.favoriteOptionIDsKey) ?? []
     )
@@ -56,6 +69,7 @@ final class ReservationStore: ObservableObject {
 
   deinit {
     refreshLoop?.cancel()
+    agentcloudRefreshTask?.cancel()
     reserveTask?.cancel()
     releaseTask?.cancel()
   }
@@ -79,6 +93,30 @@ final class ReservationStore: ObservableObject {
     isValidSessionName(sessionName)
   }
 
+  func agentcloudSessions(using hostname: String) -> [AgentcloudSessionUsage] {
+    agentcloudUsage.sessions(for: hostname)
+  }
+
+  func agentcloudUsageSummary(for hostname: String) -> String {
+    let sessions = agentcloudSessions(using: hostname)
+    if !sessions.isEmpty {
+      let shownSessions = sessions.prefix(8).map { session in
+        "• \(session.title) [\(session.id.prefix(8))]"
+      }
+      let remainder = sessions.count - shownSessions.count
+      let suffix = remainder > 0 ? "\n• and \(remainder) more" : ""
+      return "Running Agentcloud sessions (\(sessions.count)):\n"
+        + shownSessions.joined(separator: "\n") + suffix
+    }
+    if isRefreshingAgentcloud {
+      return "Loading running Agentcloud sessions…"
+    }
+    if let agentcloudUsageError {
+      return "Agentcloud usage unavailable: \(agentcloudUsageError)"
+    }
+    return "No running Agentcloud sessions attached to this node."
+  }
+
   func start() {
     guard !hasStarted else {
       refresh()
@@ -92,18 +130,73 @@ final class ReservationStore: ObservableObject {
         guard !Task.isCancelled else {
           return
         }
-        await self?.refreshNow()
+        self?.refresh()
       }
     }
   }
 
   func refresh() {
+    refreshInventory()
+    refreshAgentcloudUsage()
+  }
+
+  private func refreshInventory() {
     if isRefreshing {
       refreshRequested = true
       return
     }
     Task {
       await refreshNow()
+    }
+  }
+
+  private func refreshAgentcloudUsage() {
+    guard agentcloudCLI != nil else {
+      agentcloudUsageError = AgentcloudCLIError.executableNotFound.localizedDescription
+      return
+    }
+    if isRefreshingAgentcloud {
+      agentcloudRefreshRequested = true
+      return
+    }
+    agentcloudRefreshTask = Task { [weak self] in
+      await self?.refreshAgentcloudUsageNow()
+    }
+  }
+
+  private func refreshAgentcloudUsageNow() async {
+    guard let agentcloudCLI else {
+      agentcloudUsageError = AgentcloudCLIError.executableNotFound.localizedDescription
+      return
+    }
+    guard !isRefreshingAgentcloud else {
+      agentcloudRefreshRequested = true
+      return
+    }
+
+    isRefreshingAgentcloud = true
+    defer {
+      isRefreshingAgentcloud = false
+      agentcloudRefreshTask = nil
+      if agentcloudRefreshRequested {
+        agentcloudRefreshRequested = false
+        refreshAgentcloudUsage()
+      }
+    }
+    let worker = Task.detached(priority: .utility) {
+      try agentcloudCLI.loadUsage()
+    }
+    do {
+      let snapshot = try await withTaskCancellationHandler {
+        try await worker.value
+      } onCancel: {
+        worker.cancel()
+      }
+      agentcloudUsage = snapshot
+      agentcloudUsageError = nil
+    } catch {
+      agentcloudUsage = AgentcloudUsageSnapshot()
+      agentcloudUsageError = error.localizedDescription
     }
   }
 
@@ -155,6 +248,7 @@ final class ReservationStore: ObservableObject {
 
     let requestedName = sessionName
     let requestedDuration = reservationDuration
+    notifier.requestAuthorization()
     isReserving = true
     operationError = nil
     statusMessage =
@@ -183,6 +277,10 @@ final class ReservationStore: ObservableObject {
           worker.cancel()
         }
         statusMessage = message
+        notifier.reservationSucceeded(
+          optionName: option.name,
+          duration: requestedDuration
+        )
         sessionName = ""
         surface = .reservations
         await refreshNow()
@@ -195,8 +293,13 @@ final class ReservationStore: ObservableObject {
         operationError = nil
         await refreshNow()
       } catch {
+        let errorMessage = error.localizedDescription
         statusMessage = nil
-        operationError = error.localizedDescription
+        operationError = errorMessage
+        notifier.reservationFailed(
+          optionName: option.name,
+          duration: requestedDuration
+        )
         await refreshNow()
       }
     }

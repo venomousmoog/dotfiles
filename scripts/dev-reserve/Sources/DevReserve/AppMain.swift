@@ -1,9 +1,10 @@
 import AppKit
 import ServiceManagement
 import SwiftUI
+import UserNotifications
 
 @MainActor
-final class AppDelegate: NSObject, NSApplicationDelegate {
+final class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCenterDelegate {
   let store = ReservationStore()
 
   func applicationDidFinishLaunching(_ notification: Notification) {
@@ -19,8 +20,16 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
       return
     }
 
+    UNUserNotificationCenter.current().delegate = self
     store.start()
     configureLaunchAtLogin()
+  }
+
+  nonisolated func userNotificationCenter(
+    _ center: UNUserNotificationCenter,
+    willPresent notification: UNNotification
+  ) async -> UNNotificationPresentationOptions {
+    [.banner, .sound]
   }
 
   private func configureLaunchAtLogin() {

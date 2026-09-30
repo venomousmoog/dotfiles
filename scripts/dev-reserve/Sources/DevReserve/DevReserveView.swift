@@ -64,7 +64,7 @@ struct DevReserveView: View {
       Button {
         store.refresh()
       } label: {
-        if store.isRefreshing {
+        if store.isRefreshing || store.isRefreshingAgentcloud {
           ProgressView()
             .controlSize(.small)
         } else {
@@ -72,7 +72,7 @@ struct DevReserveView: View {
         }
       }
       .buttonStyle(.borderless)
-      .disabled(store.isRefreshing)
+      .disabled(store.isRefreshing || store.isRefreshingAgentcloud)
       .help("Refresh DevEnv inventory")
     }
   }
@@ -152,6 +152,8 @@ struct DevReserveView: View {
           allowsRelease: allowsRelease && host.releaseHostname != nil,
           isReleasing: store.releasingHostname == host.hostname,
           releaseDisabled: store.releasingHostname != nil || store.isReserving,
+          agentcloudSessions: store.agentcloudSessions(using: host.hostname),
+          agentcloudUsageSummary: store.agentcloudUsageSummary(for: host.hostname),
           copyHostname: {
             store.copyHostname(host.hostname)
           },
@@ -308,6 +310,8 @@ private struct ReservationRow: View {
   let allowsRelease: Bool
   let isReleasing: Bool
   let releaseDisabled: Bool
+  let agentcloudSessions: [AgentcloudSessionUsage]
+  let agentcloudUsageSummary: String
   let copyHostname: () -> Void
   let requestRelease: () -> Void
 
@@ -324,7 +328,7 @@ private struct ReservationRow: View {
             .multilineTextAlignment(.leading)
         }
         .buttonStyle(.plain)
-        .help("Copy hostname")
+        .help("Click to copy \(reservation.hostname).\n\n\(agentcloudUsageSummary)")
         .accessibilityLabel("Copy \(reservation.hostname)")
         Text(reservation.hostname)
           .font(.caption.monospaced())
@@ -351,6 +355,16 @@ private struct ReservationRow: View {
             .font(.caption)
             .foregroundStyle(.secondary)
         }
+        if !agentcloudSessions.isEmpty {
+          Label(
+            "\(agentcloudSessions.count) Agentcloud "
+              + (agentcloudSessions.count == 1 ? "session" : "sessions") + " running",
+            systemImage: "bolt.horizontal.circle"
+          )
+          .font(.caption2)
+          .foregroundStyle(.secondary)
+          .help(agentcloudUsageSummary)
+        }
       }
       Spacer()
       if allowsRelease {
@@ -372,6 +386,7 @@ private struct ReservationRow: View {
     }
     .padding(10)
     .background(.quaternary.opacity(0.45), in: RoundedRectangle(cornerRadius: 10))
+    .help(agentcloudUsageSummary)
   }
 
   private func expirationColor(at date: Date) -> Color {

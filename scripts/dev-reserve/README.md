@@ -6,12 +6,15 @@ A standalone native macOS menu-bar app for viewing and releasing active DevEnv r
 
 - Reads inventory with `dev -q list --with-reservable --json`.
 - Shows active OD reservation countdowns, inactive short-term Devserver V2 leases, and long-lived devservers in separate sections.
+- Refreshes currently running Agentcloud sessions through `agentcloudctl fleet --sort recent --running --limit 200` and resolves node aliases through `agentcloudctl node list`.
+- Shows each node's running Agentcloud session titles and short IDs when its row is hovered.
 - Copies a hostname when its displayed host name is clicked; there is no separate copy button.
 - Searches enabled OD types returned by DevEnv, excluding types with known zero capacity.
 - Persists starred OD types locally and sorts favorites to the top of the searchable list.
 - Reserves for a selected 1-, 2-, 3-, or 6-day duration, defaulting to six days, with a headless `dev connect`: no shell, host setup, homedir upload, restore wait, or release prompt.
 - Releases an active OD only after an explicit destructive confirmation, using its validated hostname to avoid an interactive prompt.
 - Stores no Duo credentials. The app asks DevEnv to send a Duo push.
+- Keeps reservation work running when the menu-bar popover closes and sends a macOS banner for success or failure. Notification permission is requested on the first reservation attempt; the result also remains visible in the app.
 - Offers a Stop Waiting action and a 15-minute reservation deadline. Releases have a two-minute deadline. Either outcome refreshes inventory because the server-side operation may have completed before a later local failure.
 - Does not renew or keep a lease alive. DevEnv owns the lease after allocation, so quitting the app does not release it. Release occurs only after the user confirms the trash action for a specific active OD.
 
@@ -66,3 +69,4 @@ scripts/dev-reserve/uninstall.sh
 - macOS 14 or newer
 - Swift 6 command-line tools
 - The Meta `dev` CLI at `/usr/local/bin/dev`, `/opt/homebrew/bin/dev`, or on `PATH`
+- The Meta `agentcloudctl` CLI at `/usr/local/bin/agentcloudctl`, `/opt/homebrew/bin/agentcloudctl`, or on `PATH` for session-usage hover details
