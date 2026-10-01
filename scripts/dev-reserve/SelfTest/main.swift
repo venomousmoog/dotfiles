@@ -590,6 +590,14 @@ private func runFormattingTests(_ tests: inout TestContext) throws {
     !isValidReleaseHostname("host name"),
     "expected whitespace in a release hostname to be rejected"
   )
+  try tests.expect(
+    sshCommand(hostname: "devvm123.example.com") == "ssh devvm123.example.com",
+    "expected a validated SSH command for iTerm"
+  )
+  try tests.expect(
+    sshCommand(hostname: "host; open -a Calculator") == nil,
+    "expected shell punctuation to be rejected before iTerm automation"
+  )
 
   let now = Date(timeIntervalSince1970: 1_000)
   try tests.expect(

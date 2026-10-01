@@ -41,6 +41,7 @@ final class ReservationStore: ObservableObject {
 
   private let cli: DevCLI?
   private let agentcloudCLI: AgentcloudCLI?
+  private let iTermLauncher: ITermLauncher
   private let notifier: ReservationNotifier
   private let startupError: String?
   private var refreshLoop: Task<Void, Never>?
@@ -55,10 +56,12 @@ final class ReservationStore: ObservableObject {
   init(
     cli: DevCLI? = try? DevCLI(),
     agentcloudCLI: AgentcloudCLI? = try? AgentcloudCLI(),
+    iTermLauncher: ITermLauncher = ITermLauncher(),
     notifier: ReservationNotifier = ReservationNotifier()
   ) {
     self.cli = cli
     self.agentcloudCLI = agentcloudCLI
+    self.iTermLauncher = iTermLauncher
     self.notifier = notifier
     favoriteOptionIDs = Set(
       UserDefaults.standard.stringArray(forKey: Self.favoriteOptionIDsKey) ?? []
@@ -152,6 +155,24 @@ final class ReservationStore: ObservableObject {
       return
     }
     NSWorkspace.shared.open(url)
+  }
+
+  func openTerminal(hostname: String) {
+    do {
+      try iTermLauncher.openTab(hostname: hostname)
+      operationError = nil
+      let message = "Opened iTerm to \(hostname)"
+      statusMessage = message
+      Task { [weak self] in
+        try? await Task.sleep(for: .seconds(2))
+        if self?.statusMessage == message {
+          self?.statusMessage = nil
+        }
+      }
+    } catch {
+      statusMessage = nil
+      operationError = error.localizedDescription
+    }
   }
 
   func start() {

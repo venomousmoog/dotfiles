@@ -168,6 +168,9 @@ struct DevReserveView: View {
           },
           openAgentcloudSession: { sessionID in
             store.openAgentcloudSession(sessionID)
+          },
+          openTerminal: {
+            store.openTerminal(hostname: host.hostname)
           }
         )
       }
@@ -366,6 +369,7 @@ private struct ReservationRow: View {
   let requestRelease: () -> Void
   let toggleAgentcloudExpanded: () -> Void
   let openAgentcloudSession: (String) -> Void
+  let openTerminal: () -> Void
 
   var body: some View {
     HStack(alignment: .top, spacing: 10) {
@@ -410,6 +414,17 @@ private struct ReservationRow: View {
         agentcloudUsage
       }
       Spacer()
+      Button(action: openTerminal) {
+        Image(systemName: "terminal")
+      }
+      .buttonStyle(.borderless)
+      .disabled(sshCommand(hostname: reservation.hostname) == nil)
+      .help(
+        sshCommand(hostname: reservation.hostname) == nil
+          ? "No valid SSH hostname is available"
+          : "Open an iTerm tab to \(reservation.hostname)"
+      )
+      .accessibilityLabel("Open \(reservation.hostname) in iTerm")
       if allowsRelease {
         if isReleasing {
           ProgressView()
