@@ -421,8 +421,6 @@ private struct AgentcloudSessionRow: View {
 }
 
 private struct ReservationRow: View {
-  @Environment(\.colorScheme) private var colorScheme
-
   let reservation: DevReservation
   let showsExpiration: Bool
   let fallbackDescription: String
@@ -534,31 +532,12 @@ private struct ReservationRow: View {
     }
     .padding(12)
     .background {
-      ZStack {
-        RoundedRectangle(cornerRadius: 14, style: .continuous)
-          .fill(.regularMaterial)
-        RoundedRectangle(cornerRadius: 14, style: .continuous)
-          .fill(Color.accentColor.opacity(colorScheme == .dark ? 0.22 : 0.16))
-        RoundedRectangle(cornerRadius: 14, style: .continuous)
-          .fill(
-            LinearGradient(
-              colors: [
-                Color.white.opacity(colorScheme == .dark ? 0.13 : 0.34),
-                Color.cyan.opacity(colorScheme == .dark ? 0.07 : 0.12),
-                Color.accentColor.opacity(colorScheme == .dark ? 0.04 : 0.08),
-              ],
-              startPoint: .topLeading,
-              endPoint: .bottomTrailing
-            )
-          )
-      }
+      RoundedRectangle(cornerRadius: 14, style: .continuous)
+        .fill(Color(nsColor: .controlBackgroundColor))
     }
     .overlay {
       RoundedRectangle(cornerRadius: 14, style: .continuous)
-        .strokeBorder(
-          Color.accentColor.opacity(colorScheme == .dark ? 0.42 : 0.30),
-          lineWidth: 1
-        )
+        .strokeBorder(Color(nsColor: .separatorColor).opacity(0.55), lineWidth: 1)
     }
     .shadow(color: Color.black.opacity(0.09), radius: 9, y: 3)
     .help(agentcloudUsageSummary)
