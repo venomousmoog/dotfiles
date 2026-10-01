@@ -30,8 +30,24 @@ struct DevReserveView: View {
       loginItemMessage
       footer
     }
-    .padding(16)
-    .frame(width: 460, height: 590)
+    .padding(18)
+    .frame(width: 500, height: 760)
+    .background {
+      ZStack {
+        Rectangle()
+          .fill(.ultraThinMaterial)
+        LinearGradient(
+          colors: [
+            Color.accentColor.opacity(0.10),
+            Color.clear,
+            Color.white.opacity(0.035),
+          ],
+          startPoint: .topLeading,
+          endPoint: .bottomTrailing
+        )
+      }
+      .ignoresSafeArea()
+    }
     .confirmationDialog(
       "Release reservation?",
       isPresented: Binding(
@@ -57,21 +73,45 @@ struct DevReserveView: View {
   }
 
   private var header: some View {
-    HStack {
-      Label("DevReserve", systemImage: "server.rack")
-        .font(.headline)
+    HStack(spacing: 10) {
+      Image(systemName: "server.rack")
+        .font(.title3.weight(.semibold))
+        .symbolRenderingMode(.hierarchical)
+        .foregroundStyle(.tint)
+        .frame(width: 34, height: 34)
+        .background(.thinMaterial, in: Circle())
+        .overlay {
+          Circle()
+            .strokeBorder(Color.white.opacity(0.18), lineWidth: 1)
+        }
+      VStack(alignment: .leading, spacing: 1) {
+        Text("DevReserve")
+          .font(.headline)
+        Text("DevEnv reservations")
+          .font(.caption2)
+          .foregroundStyle(.secondary)
+      }
       Spacer()
       Button {
         store.refresh()
       } label: {
-        if store.isRefreshing || store.isRefreshingAgentcloud {
-          ProgressView()
-            .controlSize(.small)
-        } else {
-          Image(systemName: "arrow.clockwise")
+        Group {
+          if store.isRefreshing || store.isRefreshingAgentcloud {
+            ProgressView()
+              .controlSize(.small)
+          } else {
+            Image(systemName: "arrow.clockwise")
+          }
         }
+        .frame(width: 16, height: 16)
       }
-      .buttonStyle(.borderless)
+      .buttonStyle(.plain)
+      .padding(7)
+      .background(.thinMaterial, in: Circle())
+      .overlay {
+        Circle()
+          .strokeBorder(Color.white.opacity(0.15), lineWidth: 1)
+      }
       .disabled(store.isRefreshing || store.isRefreshingAgentcloud)
       .help("Refresh DevEnv inventory and Agentcloud usage")
     }
@@ -79,14 +119,6 @@ struct DevReserveView: View {
 
   private var reservationsView: some View {
     VStack(alignment: .leading, spacing: 10) {
-      HStack {
-        Text("Hosts")
-          .font(.subheadline.weight(.semibold))
-        Spacer()
-        Text("\(store.reservations.count + store.shortTermLeases.count + store.devservers.count)")
-          .foregroundStyle(.secondary)
-      }
-
       if store.isRefreshing && store.reservations.isEmpty && store.shortTermLeases.isEmpty
         && store.devservers.isEmpty
       {
@@ -141,9 +173,17 @@ struct DevReserveView: View {
     allowsRelease: Bool
   ) -> some View {
     if !hosts.isEmpty {
-      Text("\(title) · \(hosts.count)")
-        .font(.caption.weight(.semibold))
-        .foregroundStyle(.secondary)
+      HStack {
+        Text(title)
+          .textCase(.uppercase)
+          .tracking(0.45)
+        Spacer()
+        Text("\(hosts.count)")
+          .monospacedDigit()
+      }
+      .font(.caption2.weight(.semibold))
+      .foregroundStyle(.secondary)
+      .padding(.horizontal, 2)
       ForEach(hosts) { host in
         ReservationRow(
           reservation: host,
@@ -202,7 +242,14 @@ struct DevReserveView: View {
           }
         }
       }
-      .frame(maxHeight: 270)
+      .frame(maxHeight: .infinity)
+      .layoutPriority(1)
+      .padding(6)
+      .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
+      .overlay {
+        RoundedRectangle(cornerRadius: 12, style: .continuous)
+          .strokeBorder(Color.white.opacity(0.12), lineWidth: 1)
+      }
       .overlay {
         if store.filteredOptions.isEmpty && !store.isRefreshing {
           ContentUnavailableView.search(text: store.searchText)
@@ -222,6 +269,13 @@ struct DevReserveView: View {
               .font(.caption)
               .foregroundStyle(.secondary)
           }
+        }
+        .padding(10)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(.thinMaterial, in: RoundedRectangle(cornerRadius: 10, style: .continuous))
+        .overlay {
+          RoundedRectangle(cornerRadius: 10, style: .continuous)
+            .strokeBorder(Color.white.opacity(0.12), lineWidth: 1)
         }
       }
 
@@ -303,6 +357,12 @@ struct DevReserveView: View {
       .foregroundStyle(color)
       .frame(maxWidth: .infinity, alignment: .leading)
       .lineLimit(3)
+      .padding(9)
+      .background(.thinMaterial, in: RoundedRectangle(cornerRadius: 10, style: .continuous))
+      .overlay {
+        RoundedRectangle(cornerRadius: 10, style: .continuous)
+          .strokeBorder(Color.white.opacity(0.12), lineWidth: 1)
+      }
   }
 
   private var footer: some View {
@@ -349,6 +409,13 @@ private struct AgentcloudSessionRow: View {
       .contentShape(Rectangle())
     }
     .buttonStyle(.plain)
+    .padding(.vertical, 6)
+    .padding(.horizontal, 8)
+    .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 9, style: .continuous))
+    .overlay {
+      RoundedRectangle(cornerRadius: 9, style: .continuous)
+        .strokeBorder(Color.white.opacity(0.10), lineWidth: 1)
+    }
     .help("Open Agentcloud session \(session.title)")
   }
 }
@@ -374,8 +441,15 @@ private struct ReservationRow: View {
   var body: some View {
     HStack(alignment: .top, spacing: 10) {
       Image(systemName: "server.rack")
+        .font(.body.weight(.semibold))
+        .symbolRenderingMode(.hierarchical)
         .foregroundStyle(.tint)
-        .frame(width: 20)
+        .frame(width: 32, height: 32)
+        .background(.ultraThinMaterial, in: Circle())
+        .overlay {
+          Circle()
+            .strokeBorder(Color.white.opacity(0.14), lineWidth: 1)
+        }
       VStack(alignment: .leading, spacing: 3) {
         Button(action: copyHostname) {
           Text(reservation.name)
@@ -416,8 +490,15 @@ private struct ReservationRow: View {
       Spacer()
       Button(action: openTerminal) {
         Image(systemName: "terminal")
+          .frame(width: 14, height: 14)
       }
-      .buttonStyle(.borderless)
+      .buttonStyle(.plain)
+      .padding(6)
+      .background(.ultraThinMaterial, in: Circle())
+      .overlay {
+        Circle()
+          .strokeBorder(Color.white.opacity(0.12), lineWidth: 1)
+      }
       .disabled(sshCommand(hostname: reservation.hostname) == nil)
       .help(
         sshCommand(hostname: reservation.hostname) == nil
@@ -434,16 +515,28 @@ private struct ReservationRow: View {
           Button(action: requestRelease) {
             Image(systemName: "trash")
               .foregroundStyle(.red)
+              .frame(width: 14, height: 14)
           }
-          .buttonStyle(.borderless)
+          .buttonStyle(.plain)
+          .padding(6)
+          .background(.ultraThinMaterial, in: Circle())
+          .overlay {
+            Circle()
+              .strokeBorder(Color.white.opacity(0.12), lineWidth: 1)
+          }
           .disabled(releaseDisabled)
           .help("Release reservation")
           .accessibilityLabel("Release reservation")
         }
       }
     }
-    .padding(10)
-    .background(.quaternary.opacity(0.45), in: RoundedRectangle(cornerRadius: 10))
+    .padding(12)
+    .background(.thinMaterial, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
+    .overlay {
+      RoundedRectangle(cornerRadius: 14, style: .continuous)
+        .strokeBorder(Color.white.opacity(0.16), lineWidth: 1)
+    }
+    .shadow(color: Color.black.opacity(0.09), radius: 9, y: 3)
     .help(agentcloudUsageSummary)
   }
 
@@ -469,6 +562,13 @@ private struct ReservationRow: View {
         .foregroundStyle(.secondary)
       }
       .buttonStyle(.plain)
+      .padding(.vertical, 5)
+      .padding(.horizontal, 8)
+      .background(.ultraThinMaterial, in: Capsule())
+      .overlay {
+        Capsule()
+          .strokeBorder(Color.white.opacity(0.10), lineWidth: 1)
+      }
       .help(agentcloudExpanded ? "Hide attached sessions" : "Show attached sessions")
 
       if agentcloudExpanded {

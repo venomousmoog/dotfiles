@@ -5,6 +5,7 @@ A standalone native macOS menu-bar app for viewing and releasing active DevEnv r
 ## Behavior
 
 - Reads inventory with `dev -q list --with-reservable --json`.
+- Uses a taller 500 × 760 popover, native macOS translucent materials, and compact section labels; the host list intentionally has no redundant top-level heading.
 - Shows active OD reservation countdowns, inactive short-term Devserver V2 leases, and long-lived devservers in separate sections.
 - Refreshes the 500 most recent Agentcloud sessions every five minutes through `agentcloudctl fleet --sort recent --limit 500` and resolves node aliases and lease claims through `agentcloudctl node list`.
 - Shows every working Agentcloud session directly beneath its host in the main Reservations view. Non-working sessions stay compact behind an expandable `N attached` row; lease holders, canonical TTL/UTC expiry, and session links remain inline with the host.
