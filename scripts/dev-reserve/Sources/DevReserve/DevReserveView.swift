@@ -531,10 +531,23 @@ private struct ReservationRow: View {
       }
     }
     .padding(12)
-    .background(.thinMaterial, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
+    .background {
+      ZStack {
+        RoundedRectangle(cornerRadius: 14, style: .continuous)
+          .fill(.regularMaterial)
+        RoundedRectangle(cornerRadius: 14, style: .continuous)
+          .fill(
+            LinearGradient(
+              colors: [Color.white.opacity(0.13), Color.white.opacity(0.025)],
+              startPoint: .topLeading,
+              endPoint: .bottomTrailing
+            )
+          )
+      }
+    }
     .overlay {
       RoundedRectangle(cornerRadius: 14, style: .continuous)
-        .strokeBorder(Color.white.opacity(0.16), lineWidth: 1)
+        .strokeBorder(Color.white.opacity(0.20), lineWidth: 1)
     }
     .shadow(color: Color.black.opacity(0.09), radius: 9, y: 3)
     .help(agentcloudUsageSummary)
