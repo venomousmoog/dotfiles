@@ -196,6 +196,7 @@ struct DevReserveView: View {
           agentcloudAttribution: store.agentcloudAttribution(for: host.hostname),
           agentcloudLease: store.agentcloudUsage.lease(for: host.hostname),
           agentcloudExpanded: store.isAgentcloudHostExpanded(host.hostname),
+          terminalApplication: store.terminalApplication,
           copyHostname: {
             store.copyHostname(host.hostname)
           },
@@ -416,6 +417,15 @@ struct DevReserveView: View {
           .foregroundStyle(.tertiary)
       }
       Spacer()
+      Picker("Open hosts in", selection: $store.terminalApplication) {
+        ForEach(TerminalApplication.allCases) { application in
+          Text(application.label).tag(application)
+        }
+      }
+      .pickerStyle(.menu)
+      .controlSize(.small)
+      .fixedSize()
+      .help("Choose which terminal opens host connections")
       Button("Quit") {
         store.quit()
       }
@@ -468,6 +478,7 @@ private struct ReservationRow: View {
   let agentcloudAttribution: AgentcloudNodeAttribution
   let agentcloudLease: AgentcloudNodeLease?
   let agentcloudExpanded: Bool
+  let terminalApplication: TerminalApplication
   let copyHostname: () -> Void
   let requestRelease: () -> Void
   let toggleAgentcloudExpanded: () -> Void
@@ -528,9 +539,9 @@ private struct ReservationRow: View {
       .help(
         sshCommand(hostname: reservation.hostname) == nil
           ? "No valid SSH hostname is available"
-          : "Open an iTerm tab to \(reservation.hostname)"
+          : "Open in \(terminalApplication.label): \(reservation.hostname)"
       )
-      .accessibilityLabel("Open \(reservation.hostname) in iTerm")
+      .accessibilityLabel("Open \(reservation.hostname) in \(terminalApplication.label)")
       if allowsRelease {
         if isReleasing {
           ProgressView()

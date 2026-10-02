@@ -14,12 +14,21 @@ final class ReservationStore: ObservableObject {
 
   private static let lastSelectedOptionKey = "lastSelectedOptionID"
   private static let favoriteOptionIDsKey = "favoriteOptionIDs"
+  private static let terminalApplicationKey = "terminalApplication"
 
   @Published var surface = Surface.reservations
   @Published var searchText = ""
   @Published var selectedOptionID: String?
   @Published var reservationDuration = ReservationDuration.sixDays
   @Published var sessionName = ""
+  @Published var terminalApplication: TerminalApplication {
+    didSet {
+      UserDefaults.standard.set(
+        terminalApplication.rawValue,
+        forKey: Self.terminalApplicationKey
+      )
+    }
+  }
   @Published var expandedAgentcloudHostIDs: Set<String> = []
   @Published private(set) var favoriteOptionIDs: Set<String> = []
   @Published private(set) var reservations: [DevReservation] = []
@@ -41,7 +50,7 @@ final class ReservationStore: ObservableObject {
 
   private let cli: DevCLI?
   private let agentcloudCLI: AgentcloudCLI?
-  private let iTermLauncher: ITermLauncher
+  private let terminalLauncher: TerminalLauncher
   private let notifier: ReservationNotifier
   private let startupError: String?
   private var refreshLoop: Task<Void, Never>?
@@ -56,13 +65,18 @@ final class ReservationStore: ObservableObject {
   init(
     cli: DevCLI? = try? DevCLI(),
     agentcloudCLI: AgentcloudCLI? = try? AgentcloudCLI(),
-    iTermLauncher: ITermLauncher = ITermLauncher(),
+    terminalLauncher: TerminalLauncher = TerminalLauncher(),
     notifier: ReservationNotifier = ReservationNotifier()
   ) {
     self.cli = cli
     self.agentcloudCLI = agentcloudCLI
-    self.iTermLauncher = iTermLauncher
+    self.terminalLauncher = terminalLauncher
     self.notifier = notifier
+    let savedTerminalApplication = UserDefaults.standard.string(
+      forKey: Self.terminalApplicationKey
+    )
+    terminalApplication =
+      savedTerminalApplication.flatMap(TerminalApplication.init(rawValue:)) ?? .iTerm
     favoriteOptionIDs = Set(
       UserDefaults.standard.stringArray(forKey: Self.favoriteOptionIDsKey) ?? []
     )
@@ -128,10 +142,14 @@ final class ReservationStore: ObservableObject {
   }
 
   func openTerminal(hostname: String) {
+    let application = terminalApplication
     do {
-      try iTermLauncher.openTab(hostname: hostname)
+      try terminalLauncher.open(
+        application: application,
+        hostname: hostname
+      )
       operationError = nil
-      let message = "Opened iTerm to \(hostname)"
+      let message = "Opened \(application.label) to \(hostname)"
       statusMessage = message
       Task { [weak self] in
         try? await Task.sleep(for: .seconds(2))

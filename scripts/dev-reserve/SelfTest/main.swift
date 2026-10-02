@@ -596,7 +596,42 @@ private func runFormattingTests(_ tests: inout TestContext) throws {
   )
   try tests.expect(
     sshCommand(hostname: "host; open -a Calculator") == nil,
-    "expected shell punctuation to be rejected before iTerm automation"
+    "expected shell punctuation to be rejected before terminal automation"
+  )
+  try tests.expect(
+    TerminalApplication(rawValue: "iterm") == .iTerm
+      && TerminalApplication(rawValue: "terminal") == .terminal,
+    "expected persisted terminal choices to decode"
+  )
+  let iTermScript = try DevCLIError.invalidResponse("missing iTerm launch script").unwrap(
+    TerminalLaunchScript.source(
+      application: .iTerm,
+      hostname: "devvm123.example.com"
+    )
+  )
+  try tests.expect(
+    iTermScript.contains("set targetSession")
+      && iTermScript.contains("is processing of targetSession")
+      && iTermScript.contains("tell targetSession to write text \"ssh devvm123.example.com\""),
+    "expected iTerm to target and wait for the newly created session"
+  )
+  let terminalScript = try DevCLIError.invalidResponse("missing Terminal launch script").unwrap(
+    TerminalLaunchScript.source(
+      application: .terminal,
+      hostname: "devvm123.example.com"
+    )
+  )
+  try tests.expect(
+    terminalScript.contains("tell application id \"com.apple.Terminal\"")
+      && terminalScript.contains("do script \"ssh devvm123.example.com\""),
+    "expected Apple Terminal to create a fresh scripted connection"
+  )
+  try tests.expect(
+    TerminalLaunchScript.source(
+      application: .iTerm,
+      hostname: "host; open -a Calculator"
+    ) == nil,
+    "expected an unsafe hostname to produce no terminal script"
   )
 
   let now = Date(timeIntervalSince1970: 1_000)
@@ -679,6 +714,20 @@ extension Array {
       Array(self[index..<(index + count)])
     }
   }
+}
+
+if let scriptFlag = CommandLine.arguments.firstIndex(of: "--print-terminal-script"),
+  CommandLine.arguments.indices.contains(scriptFlag + 1),
+  let application = TerminalApplication(
+    rawValue: CommandLine.arguments[scriptFlag + 1]
+  ),
+  let source = TerminalLaunchScript.source(
+    application: application,
+    hostname: "devvm123.example.com"
+  )
+{
+  print(source)
+  exit(0)
 }
 
 do {

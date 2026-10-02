@@ -25,7 +25,7 @@
     <key>LSUIElement</key>
     <true/>
     <key>NSAppleEventsUsageDescription</key>
-    <string>DevReserve opens an iTerm tab connected to the selected DevEnv host.</string>
+    <string>DevReserve opens a terminal session connected to the selected DevEnv host.</string>
     <key>NSHighResolutionCapable</key>
     <true/>
 </dict>

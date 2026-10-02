@@ -10,7 +10,7 @@ A standalone native macOS menu-bar app for viewing and releasing active DevEnv r
 - Refreshes the 500 most recent Agentcloud sessions every five minutes through `agentcloudctl fleet --sort recent --limit 500` and resolves node aliases and lease claims through `agentcloudctl node list`.
 - Shows every working Agentcloud session directly beneath its host in the main Reservations view. Non-working sessions stay compact behind an expandable `N attached` row; lease holders, canonical TTL/UTC expiry, and session links remain inline with the host.
 - Copies a hostname when its displayed host name is clicked; there is no separate copy button.
-- Opens a new iTerm tab and runs `ssh <hostname>` when the terminal icon beside a host is clicked. The first use may ask for macOS Automation permission to control iTerm.
+- Opens the selected terminal when the icon beside a host is clicked. The persisted footer picker supports iTerm (default, new tab) and Apple's Terminal (new window), then runs `ssh <hostname>`. iTerm launch waits for the new shell session to become ready before sending the command; first use may ask for macOS Automation permission.
 - Searches enabled OD types returned by DevEnv, excluding types with known zero capacity.
 - Persists starred OD types locally and sorts favorites to the top of the searchable list.
 - Reserves for a selected 1-, 2-, 3-, or 6-day duration, defaulting to six days, with a headless `dev connect`: no shell, host setup, homedir upload, restore wait, or release prompt.
@@ -73,4 +73,4 @@ scripts/dev-reserve/uninstall.sh
 - Swift 6 command-line tools
 - The Meta `dev` CLI at `/usr/local/bin/dev`, `/opt/homebrew/bin/dev`, or on `PATH`
 - The Meta `agentcloudctl` CLI at `/usr/local/bin/agentcloudctl`, `/opt/homebrew/bin/agentcloudctl`, or on `PATH` for session-usage hover details
-- iTerm2 for the per-host terminal button
+- iTerm2 is optional; Apple's built-in Terminal is also supported by the per-host terminal button
