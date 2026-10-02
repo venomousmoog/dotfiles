@@ -451,8 +451,24 @@ final class ReservationStore: ObservableObject {
     }
   }
 
+  func dismissOperationError() {
+    operationError = nil
+  }
+
+  func dismissRefreshError() {
+    refreshError = nil
+  }
+
+  func dismissAgentcloudUsageError() {
+    agentcloudUsageError = nil
+  }
+
   func setLaunchAtLoginMessage(_ message: String?) {
     launchAtLoginMessage = message
+  }
+
+  func dismissLaunchAtLoginMessage() {
+    launchAtLoginMessage = nil
   }
 
   func quit() {

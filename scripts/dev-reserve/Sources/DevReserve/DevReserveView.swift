@@ -325,14 +325,25 @@ struct DevReserveView: View {
   @ViewBuilder
   private var messages: some View {
     if let error = store.operationError {
-      messageLabel(error, systemImage: "exclamationmark.triangle.fill", color: .red)
+      dismissibleMessageLabel(
+        error,
+        systemImage: "exclamationmark.triangle.fill",
+        color: .red,
+        dismiss: store.dismissOperationError
+      )
     } else if let error = store.refreshError {
-      messageLabel(error, systemImage: "arrow.clockwise.circle", color: .orange)
+      dismissibleMessageLabel(
+        error,
+        systemImage: "arrow.clockwise.circle",
+        color: .orange,
+        dismiss: store.dismissRefreshError
+      )
     } else if let error = store.agentcloudUsageError {
-      messageLabel(
+      dismissibleMessageLabel(
         "Agentcloud usage unavailable: \(error)",
         systemImage: "exclamationmark.triangle.fill",
-        color: .orange
+        color: .orange,
+        dismiss: store.dismissAgentcloudUsageError
       )
     } else if let status = store.statusMessage {
       messageLabel(status, systemImage: "info.circle.fill", color: .secondary)
@@ -342,7 +353,40 @@ struct DevReserveView: View {
   @ViewBuilder
   private var loginItemMessage: some View {
     if let loginMessage = store.launchAtLoginMessage {
-      messageLabel(loginMessage, systemImage: "gear.badge", color: .orange)
+      dismissibleMessageLabel(
+        loginMessage,
+        systemImage: "gear.badge",
+        color: .orange,
+        dismiss: store.dismissLaunchAtLoginMessage
+      )
+    }
+  }
+
+  private func dismissibleMessageLabel(
+    _ text: String,
+    systemImage: String,
+    color: Color,
+    dismiss: @escaping () -> Void
+  ) -> some View {
+    HStack(alignment: .top, spacing: 8) {
+      Label(text, systemImage: systemImage)
+        .font(.caption)
+        .foregroundStyle(color)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .lineLimit(3)
+      Button(action: dismiss) {
+        Image(systemName: "xmark.circle.fill")
+          .symbolRenderingMode(.hierarchical)
+          .foregroundStyle(.secondary)
+      }
+      .buttonStyle(.plain)
+      .accessibilityLabel("Dismiss message")
+    }
+    .padding(9)
+    .background(.thinMaterial, in: RoundedRectangle(cornerRadius: 10, style: .continuous))
+    .overlay {
+      RoundedRectangle(cornerRadius: 10, style: .continuous)
+        .strokeBorder(Color.white.opacity(0.12), lineWidth: 1)
     }
   }
 

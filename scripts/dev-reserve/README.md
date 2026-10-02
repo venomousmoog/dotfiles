@@ -17,6 +17,7 @@ A standalone native macOS menu-bar app for viewing and releasing active DevEnv r
 - Releases an active OD only after an explicit destructive confirmation, using its validated hostname to avoid an interactive prompt.
 - Stores no Duo credentials. The app asks DevEnv to send a Duo push.
 - Keeps reservation work running when the menu-bar popover closes and sends a macOS banner for success or failure. Notification permission is requested on the first reservation attempt; the result also remains visible in the app.
+- Shows a close button on operation, refresh, Agentcloud, and login-item error banners so acknowledged errors can be cleared; a later failure can surface again.
 - Offers a Stop Waiting action and a 15-minute reservation deadline. Releases have a two-minute deadline. Either outcome refreshes inventory because the server-side operation may have completed before a later local failure.
 - Does not renew or keep a lease alive. DevEnv owns the lease after allocation, so quitting the app does not release it. Release occurs only after the user confirms the trash action for a specific active OD.
 
