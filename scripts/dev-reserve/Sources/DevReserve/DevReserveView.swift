@@ -135,7 +135,7 @@ struct DevReserveView: View {
           description: Text("Reserve an OD from the Reserve tab.")
         )
       } else {
-        ScrollView {
+        ScrollView(.vertical, showsIndicators: false) {
           LazyVStack(alignment: .leading, spacing: 10) {
             hostSection(
               title: "Active OD reservations",
@@ -159,7 +159,10 @@ struct DevReserveView: View {
               allowsRelease: false
             )
           }
+          .padding(.horizontal, 10)
+          .padding(.vertical, 8)
         }
+        .contentMargins(.horizontal, 2, for: .scrollContent)
       }
     }
   }
@@ -562,12 +565,15 @@ private struct ReservationRow: View {
       }
     }
     .padding(12)
-    .background(.thinMaterial, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
+    .background {
+      RoundedRectangle(cornerRadius: 14, style: .continuous)
+        .fill(Color(nsColor: .textBackgroundColor))
+    }
     .overlay {
       RoundedRectangle(cornerRadius: 14, style: .continuous)
-        .strokeBorder(Color.white.opacity(0.16), lineWidth: 1)
+        .strokeBorder(Color(nsColor: .separatorColor).opacity(0.45), lineWidth: 1)
     }
-    .shadow(color: Color.black.opacity(0.07), radius: 6, y: 2)
+    .shadow(color: Color.black.opacity(0.09), radius: 7, y: 3)
   }
 
   @ViewBuilder
