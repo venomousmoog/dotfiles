@@ -454,11 +454,6 @@ private struct AgentcloudSessionRow: View {
     .buttonStyle(.plain)
     .padding(.vertical, 6)
     .padding(.horizontal, 8)
-    .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 9, style: .continuous))
-    .overlay {
-      RoundedRectangle(cornerRadius: 9, style: .continuous)
-        .strokeBorder(Color.white.opacity(0.10), lineWidth: 1)
-    }
   }
 }
 
@@ -486,11 +481,6 @@ private struct ReservationRow: View {
         .symbolRenderingMode(.hierarchical)
         .foregroundStyle(.tint)
         .frame(width: 32, height: 32)
-        .background(.ultraThinMaterial, in: Circle())
-        .overlay {
-          Circle()
-            .strokeBorder(Color.white.opacity(0.14), lineWidth: 1)
-        }
       VStack(alignment: .leading, spacing: 3) {
         Button(action: copyHostname) {
           Text(reservation.name)
@@ -534,11 +524,6 @@ private struct ReservationRow: View {
       }
       .buttonStyle(.plain)
       .padding(6)
-      .background(.ultraThinMaterial, in: Circle())
-      .overlay {
-        Circle()
-          .strokeBorder(Color.white.opacity(0.12), lineWidth: 1)
-      }
       .disabled(sshCommand(hostname: reservation.hostname) == nil)
       .help(
         sshCommand(hostname: reservation.hostname) == nil
@@ -559,11 +544,6 @@ private struct ReservationRow: View {
           }
           .buttonStyle(.plain)
           .padding(6)
-          .background(.ultraThinMaterial, in: Circle())
-          .overlay {
-            Circle()
-              .strokeBorder(Color.white.opacity(0.12), lineWidth: 1)
-          }
           .disabled(releaseDisabled)
           .help("Release reservation")
           .accessibilityLabel("Release reservation")
@@ -571,15 +551,12 @@ private struct ReservationRow: View {
       }
     }
     .padding(12)
-    .background {
-      RoundedRectangle(cornerRadius: 14, style: .continuous)
-        .fill(Color(nsColor: .controlBackgroundColor))
-    }
+    .background(.thinMaterial, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
     .overlay {
       RoundedRectangle(cornerRadius: 14, style: .continuous)
-        .strokeBorder(Color(nsColor: .separatorColor).opacity(0.55), lineWidth: 1)
+        .strokeBorder(Color.white.opacity(0.16), lineWidth: 1)
     }
-    .shadow(color: Color.black.opacity(0.09), radius: 9, y: 3)
+    .shadow(color: Color.black.opacity(0.07), radius: 6, y: 2)
   }
 
   @ViewBuilder
@@ -606,11 +583,6 @@ private struct ReservationRow: View {
       .buttonStyle(.plain)
       .padding(.vertical, 5)
       .padding(.horizontal, 8)
-      .background(.ultraThinMaterial, in: Capsule())
-      .overlay {
-        Capsule()
-          .strokeBorder(Color.white.opacity(0.10), lineWidth: 1)
-      }
 
       if agentcloudExpanded {
         ForEach(attachedSessions) { session in
