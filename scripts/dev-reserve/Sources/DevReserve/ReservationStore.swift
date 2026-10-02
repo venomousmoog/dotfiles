@@ -107,36 +107,6 @@ final class ReservationStore: ObservableObject {
     agentcloudUsage.attribution(for: hostname)
   }
 
-  func agentcloudUsageSummary(for hostname: String) -> String {
-    if let agentcloudUsageError {
-      return "Agentcloud usage unavailable: \(agentcloudUsageError)"
-    }
-    if isRefreshingAgentcloud && agentcloudUsage.advertisedHostnames.isEmpty {
-      return "Loading Agentcloud node usage…"
-    }
-
-    switch agentcloudAttribution(for: hostname) {
-    case .attached(let primary, let others):
-      let sessions = [primary] + others
-      let shownSessions = sessions.prefix(8).map { session in
-        let marker = session.running ? "●" : "○"
-        return "\(marker) \(session.title) [\(session.id.prefix(8))]"
-      }
-      let remainder = sessions.count - shownSessions.count
-      let suffix = remainder > 0 ? "\n• and \(remainder) more" : ""
-      let heading = primary.running ? "Using this node now" : "Attached sessions"
-      return "\(heading) (\(sessions.count)):\n"
-        + shownSessions.joined(separator: "\n") + suffix
-    case .holder(let session, let lease):
-      let title = session?.title ?? String(lease.holderSessionID.prefix(8))
-      return "Reserved by \(title) [\(lease.holderSessionID.prefix(8))]\n"
-        + AgentcloudLeaseText.label(expiresAt: lease.expiresAt)
-    case .unknown:
-      return
-        "Usage unknown. No listed session names this node and no Agentcloud lease identifies a holder; an unlisted session may still be using it."
-    }
-  }
-
   func isAgentcloudHostExpanded(_ hostname: String) -> Bool {
     expandedAgentcloudHostIDs.contains(AgentcloudUsageSnapshot.normalizeNodeID(hostname))
   }

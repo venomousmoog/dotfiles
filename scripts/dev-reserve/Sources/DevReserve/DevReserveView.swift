@@ -195,7 +195,6 @@ struct DevReserveView: View {
           agentcloudSessions: store.agentcloudSessions(using: host.hostname),
           agentcloudAttribution: store.agentcloudAttribution(for: host.hostname),
           agentcloudLease: store.agentcloudUsage.lease(for: host.hostname),
-          agentcloudUsageSummary: store.agentcloudUsageSummary(for: host.hostname),
           agentcloudExpanded: store.isAgentcloudHostExpanded(host.hostname),
           copyHostname: {
             store.copyHostname(host.hostname)
@@ -416,7 +415,6 @@ private struct AgentcloudSessionRow: View {
       RoundedRectangle(cornerRadius: 9, style: .continuous)
         .strokeBorder(Color.white.opacity(0.10), lineWidth: 1)
     }
-    .help("Open Agentcloud session \(session.title)")
   }
 }
 
@@ -430,7 +428,6 @@ private struct ReservationRow: View {
   let agentcloudSessions: [AgentcloudSessionUsage]
   let agentcloudAttribution: AgentcloudNodeAttribution
   let agentcloudLease: AgentcloudNodeLease?
-  let agentcloudUsageSummary: String
   let agentcloudExpanded: Bool
   let copyHostname: () -> Void
   let requestRelease: () -> Void
@@ -458,7 +455,6 @@ private struct ReservationRow: View {
             .multilineTextAlignment(.leading)
         }
         .buttonStyle(.plain)
-        .help("Click to copy \(reservation.hostname).\n\n\(agentcloudUsageSummary)")
         .accessibilityLabel("Copy \(reservation.hostname)")
         Text(reservation.hostname)
           .font(.caption.monospaced())
@@ -540,7 +536,6 @@ private struct ReservationRow: View {
         .strokeBorder(Color(nsColor: .separatorColor).opacity(0.55), lineWidth: 1)
     }
     .shadow(color: Color.black.opacity(0.09), radius: 9, y: 3)
-    .help(agentcloudUsageSummary)
   }
 
   @ViewBuilder
@@ -572,7 +567,6 @@ private struct ReservationRow: View {
         Capsule()
           .strokeBorder(Color.white.opacity(0.10), lineWidth: 1)
       }
-      .help(agentcloudExpanded ? "Hide attached sessions" : "Show attached sessions")
 
       if agentcloudExpanded {
         ForEach(attachedSessions) { session in
