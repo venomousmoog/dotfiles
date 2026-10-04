@@ -634,6 +634,28 @@ private func runFormattingTests(_ tests: inout TestContext) throws {
     "expected an unsafe hostname to produce no terminal script"
   )
 
+  try tests.expect(
+    WindowDimensions(width: 500, height: 760) == .defaultValue,
+    "expected the default menu-window dimensions"
+  )
+  try tests.expect(
+    WindowDimensions(width: 459, height: 760) == nil
+      && WindowDimensions(width: 500, height: 619) == nil,
+    "expected undersized menu-window dimensions to be rejected"
+  )
+  try tests.expect(
+    WindowDimensions(width: .nan, height: 760) == nil
+      && WindowDimensions(width: 500, height: .infinity) == nil,
+    "expected non-finite menu-window dimensions to be rejected"
+  )
+  try tests.expect(
+    WindowDimensions(width: 1_200, height: 1_000)?.clamped(
+      maxWidth: 900,
+      maxHeight: 700
+    ) == WindowDimensions(width: 900, height: 700),
+    "expected restored menu-window dimensions to clamp to visible bounds"
+  )
+
   let now = Date(timeIntervalSince1970: 1_000)
   try tests.expect(
     ExpirationText.relative(

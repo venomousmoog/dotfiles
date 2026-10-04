@@ -14,7 +14,8 @@ A standalone native macOS menu-bar app for viewing and releasing active DevEnv r
 - Searches enabled OD types returned by DevEnv, excluding types with known zero capacity.
 - Persists starred OD types locally and sorts favorites to the top of the searchable list.
 - Reserves for a selected 1-, 2-, 3-, or 6-day duration, defaulting to six days, with a headless `dev connect`: no shell, host setup, homedir upload, restore wait, or release prompt.
-- Releases an active OD only after an explicit destructive confirmation, using its validated hostname to avoid an interactive prompt.
+- Releases an active OD only after an explicit destructive confirmation rendered inside the menu window, using its validated hostname to avoid an interactive CLI prompt.
+- The menu window is resizable from its edges, enforces a 460 × 620 minimum, and restores its last valid content size across openings and app restarts without persisting its screen position.
 - Stores no Duo credentials. The app asks DevEnv to send a Duo push.
 - Keeps reservation work running when the menu-bar popover closes and sends a macOS banner for success or failure. Notification permission is requested on the first reservation attempt; the result also remains visible in the app.
 - Shows a close button on operation, refresh, Agentcloud, and login-item error banners so acknowledged errors can be cleared; a later failure can surface again.

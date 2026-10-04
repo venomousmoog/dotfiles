@@ -4,8 +4,45 @@ import SwiftUI
 
 struct DevReserveView: View {
   @ObservedObject var store: ReservationStore
+  @FocusState private var releaseConfirmationFocused: Bool
 
   var body: some View {
+    ZStack {
+      mainContent
+        .disabled(store.pendingRelease != nil)
+
+      if let reservation = store.pendingRelease {
+        releaseConfirmation(reservation)
+      }
+    }
+    .frame(
+      minWidth: WindowDimensions.minimum.width,
+      idealWidth: WindowDimensions.defaultValue.width,
+      maxWidth: .infinity,
+      minHeight: WindowDimensions.minimum.height,
+      idealHeight: WindowDimensions.defaultValue.height,
+      maxHeight: .infinity
+    )
+    .background {
+      ZStack {
+        Rectangle()
+          .fill(.ultraThinMaterial)
+        LinearGradient(
+          colors: [
+            Color.accentColor.opacity(0.10),
+            Color.clear,
+            Color.white.opacity(0.035),
+          ],
+          startPoint: .topLeading,
+          endPoint: .bottomTrailing
+        )
+      }
+      .ignoresSafeArea()
+    }
+    .background(ResizableWindowConfigurator())
+  }
+
+  private var mainContent: some View {
     VStack(spacing: 14) {
       header
       Picker("Surface", selection: $store.surface) {
@@ -31,45 +68,59 @@ struct DevReserveView: View {
       footer
     }
     .padding(18)
-    .frame(width: 500, height: 760)
-    .background {
-      ZStack {
-        Rectangle()
-          .fill(.ultraThinMaterial)
-        LinearGradient(
-          colors: [
-            Color.accentColor.opacity(0.10),
-            Color.clear,
-            Color.white.opacity(0.035),
-          ],
-          startPoint: .topLeading,
-          endPoint: .bottomTrailing
-        )
-      }
-      .ignoresSafeArea()
-    }
-    .confirmationDialog(
-      "Release reservation?",
-      isPresented: Binding(
-        get: { store.pendingRelease != nil },
-        set: { isPresented in
-          if !isPresented {
+  }
+
+  private func releaseConfirmation(_ reservation: DevReservation) -> some View {
+    ZStack {
+      Color.black.opacity(0.18)
+        .ignoresSafeArea()
+
+      VStack(alignment: .leading, spacing: 14) {
+        Label("Release reservation?", systemImage: "exclamationmark.triangle.fill")
+          .font(.headline)
+          .foregroundStyle(.red)
+
+        Text("This immediately releases \(reservation.name). This action cannot be undone.")
+          .font(.subheadline)
+          .fixedSize(horizontal: false, vertical: true)
+
+        Text(reservation.hostname)
+          .font(.caption.monospaced())
+          .foregroundStyle(.secondary)
+          .textSelection(.enabled)
+
+        HStack {
+          Spacer()
+          Button("Cancel") {
             store.cancelRelease()
           }
+          .keyboardShortcut(.cancelAction)
+          .focused($releaseConfirmationFocused)
+
+          Button("Release") {
+            store.confirmRelease(reservation)
+          }
+          .buttonStyle(.borderedProminent)
+          .tint(.red)
         }
-      ),
-      titleVisibility: .visible,
-      presenting: store.pendingRelease
-    ) { reservation in
-      Button("Release \(reservation.hostname)", role: .destructive) {
-        store.confirmRelease(reservation)
       }
-      Button("Cancel", role: .cancel) {
-        store.cancelRelease()
+      .padding(20)
+      .frame(maxWidth: 380)
+      .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
+      .overlay {
+        RoundedRectangle(cornerRadius: 14, style: .continuous)
+          .strokeBorder(Color.white.opacity(0.18), lineWidth: 1)
       }
-    } message: { reservation in
-      Text("This immediately releases \(reservation.name). This action cannot be undone.")
+      .shadow(color: Color.black.opacity(0.18), radius: 18, y: 8)
+      .padding(24)
+      .accessibilityElement(children: .contain)
+      .accessibilityAddTraits(.isModal)
+      .onAppear {
+        releaseConfirmationFocused = true
+      }
     }
+    .transition(.opacity)
+    .zIndex(1)
   }
 
   private var header: some View {
