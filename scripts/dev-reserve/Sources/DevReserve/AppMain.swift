@@ -6,6 +6,7 @@ import UserNotifications
 @MainActor
 final class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCenterDelegate {
   let store = ReservationStore()
+  private var statusPanelController: StatusPanelController?
 
   func applicationDidFinishLaunching(_ notification: Notification) {
     NSApplication.shared.setActivationPolicy(.accessory)
@@ -21,8 +22,15 @@ final class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCent
     }
 
     UNUserNotificationCenter.current().delegate = self
+    let statusPanelController = StatusPanelController(store: store)
+    statusPanelController.install()
+    self.statusPanelController = statusPanelController
     store.start()
     configureLaunchAtLogin()
+  }
+
+  func applicationWillTerminate(_ notification: Notification) {
+    statusPanelController?.uninstall()
   }
 
   nonisolated func userNotificationCenter(
@@ -100,13 +108,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCent
 }
 
 @main
-struct DevReserveApp: App {
-  @NSApplicationDelegateAdaptor(AppDelegate.self) private var appDelegate
-
-  var body: some Scene {
-    MenuBarExtra("DevReserve", systemImage: "server.rack") {
-      DevReserveView(store: appDelegate.store)
-    }
-    .menuBarExtraStyle(.window)
+struct DevReserveApp {
+  @MainActor
+  static func main() {
+    let application = NSApplication.shared
+    let delegate = AppDelegate()
+    application.delegate = delegate
+    application.run()
   }
 }

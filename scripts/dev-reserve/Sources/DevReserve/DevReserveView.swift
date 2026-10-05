@@ -39,7 +39,6 @@ struct DevReserveView: View {
       }
       .ignoresSafeArea()
     }
-    .background(ResizableWindowConfigurator())
   }
 
   private var mainContent: some View {
