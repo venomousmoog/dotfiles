@@ -5,7 +5,7 @@ import UserNotifications
 
 @MainActor
 final class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCenterDelegate {
-  let store = ReservationStore()
+  private var store: ReservationStore?
   private var statusPanelController: StatusPanelController?
 
   func applicationDidFinishLaunching(_ notification: Notification) {
@@ -21,10 +21,54 @@ final class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCent
       return
     }
 
+    let store = ReservationStore()
+    self.store = store
     UNUserNotificationCenter.current().delegate = self
     let statusPanelController = StatusPanelController(store: store)
     statusPanelController.install()
     self.statusPanelController = statusPanelController
+
+    if CommandLine.arguments.contains("--panel-smoke-test") {
+      statusPanelController.performStatusItemClickForTesting()
+      DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
+        let openDescription = statusPanelController.smokeDescription
+        let openSucceeded = statusPanelController.smokeOpenSucceeded
+        statusPanelController.performStatusItemClickForTesting()
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
+          let toggleClosedDescription = statusPanelController.smokeDescription
+          let toggleClosedSucceeded = statusPanelController.smokeClosedSucceeded
+          statusPanelController.performStatusItemClickForTesting()
+          DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
+            let reopenedSucceeded = statusPanelController.smokeOpenSucceeded
+            statusPanelController.performOutsideClickDismissalForTesting()
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) {
+              let outsideClosedDescription = statusPanelController.smokeDescription
+              let outsideClosedSucceeded = statusPanelController.smokeClosedSucceeded
+              print(
+                "open=[\(openDescription)] toggleClosed=[\(toggleClosedDescription)] outsideClosed=[\(outsideClosedDescription)]"
+              )
+              if openSucceeded,
+                toggleClosedSucceeded,
+                reopenedSucceeded,
+                outsideClosedSucceeded
+              {
+                NSApplication.shared.terminate(nil)
+              } else {
+                FileHandle.standardError.write(
+                  Data(
+                    "Panel smoke test failed: open=[\(openDescription)] toggleClosed=[\(toggleClosedDescription)] outsideClosed=[\(outsideClosedDescription)]\n"
+                      .utf8
+                  )
+                )
+                exit(1)
+              }
+            }
+          }
+        }
+      }
+      return
+    }
+
     store.start()
     configureLaunchAtLogin()
   }
@@ -54,22 +98,22 @@ final class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCent
 
       switch service.status {
       case .enabled:
-        store.setLaunchAtLoginMessage(nil)
+        store?.setLaunchAtLoginMessage(nil)
       case .requiresApproval:
-        store.setLaunchAtLoginMessage(
+        store?.setLaunchAtLoginMessage(
           "Enable DevReserve in System Settings › General › Login Items."
         )
       case .notFound, .notRegistered:
-        store.setLaunchAtLoginMessage(
+        store?.setLaunchAtLoginMessage(
           "DevReserve could not register as a login item."
         )
       @unknown default:
-        store.setLaunchAtLoginMessage(
+        store?.setLaunchAtLoginMessage(
           "DevReserve login-item status is unavailable."
         )
       }
     } catch {
-      store.setLaunchAtLoginMessage(
+      store?.setLaunchAtLoginMessage(
         "Could not enable launch at login: \(error.localizedDescription)"
       )
     }

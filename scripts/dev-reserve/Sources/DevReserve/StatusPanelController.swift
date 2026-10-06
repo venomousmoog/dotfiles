@@ -4,12 +4,14 @@ import SwiftUI
 
 @MainActor
 final class StatusPanelController: NSObject, NSWindowDelegate {
-  private static let widthKey = "menuWindowContentWidth"
-  private static let heightKey = "menuWindowContentHeight"
+  private static let widthKey = "statusPanelContentWidthV2"
+  private static let heightKey = "statusPanelContentHeightV2"
 
   private let store: ReservationStore
   private var statusItem: NSStatusItem?
   private var panel: StatusPanel?
+  private var outsideClickMonitor: Any?
+  private var previouslyActiveApplication: NSRunningApplication?
 
   init(store: ReservationStore) {
     self.store = store
@@ -32,6 +34,7 @@ final class StatusPanelController: NSObject, NSWindowDelegate {
       button.toolTip = "DevReserve"
       button.target = self
       button.action = #selector(togglePanel)
+      button.sendAction(on: [.leftMouseUp])
     }
     statusItem = item
 
@@ -55,6 +58,13 @@ final class StatusPanelController: NSObject, NSWindowDelegate {
     hostingView.autoresizingMask = [.width, .height]
     panel.contentView = hostingView
     self.panel = panel
+    startOutsideClickMonitor()
+    NSWorkspace.shared.notificationCenter.addObserver(
+      self,
+      selector: #selector(workspaceDidActivateApplication(_:)),
+      name: NSWorkspace.didActivateApplicationNotification,
+      object: nil
+    )
   }
 
   func uninstall() {
@@ -64,6 +74,12 @@ final class StatusPanelController: NSObject, NSWindowDelegate {
       panel.orderOut(nil)
     }
     panel = nil
+    stopOutsideClickMonitor()
+    NSWorkspace.shared.notificationCenter.removeObserver(
+      self,
+      name: NSWorkspace.didActivateApplicationNotification,
+      object: nil
+    )
     if let statusItem {
       NSStatusBar.system.removeStatusItem(statusItem)
     }
@@ -75,13 +91,137 @@ final class StatusPanelController: NSObject, NSWindowDelegate {
       return
     }
     if panel.isVisible {
-      panel.orderOut(nil)
+      dismiss(
+        deactivateApplication: true,
+        restorePreviousApplication: true
+      )
+      return
+    }
+    present()
+  }
+
+  func present() {
+    guard let panel else {
       return
     }
 
     applyClampedSavedSize(to: panel)
     position(panel)
-    panel.makeKeyAndOrderFront(nil)
+    let currentApplication = NSRunningApplication.current
+    if let frontmostApplication = NSWorkspace.shared.frontmostApplication,
+      frontmostApplication.processIdentifier != currentApplication.processIdentifier
+    {
+      previouslyActiveApplication = frontmostApplication
+    } else {
+      previouslyActiveApplication = nil
+    }
+    NSApplication.shared.activate(ignoringOtherApps: true)
+    panel.orderFrontRegardless()
+    panel.makeKey()
+  }
+
+  func performStatusItemClickForTesting() {
+    statusItem?.button?.performClick(nil)
+  }
+
+  func performOutsideClickDismissalForTesting() {
+    dismiss(
+      deactivateApplication: true,
+      restorePreviousApplication: true
+    )
+  }
+
+  var smokeOpenSucceeded: Bool {
+    guard let panel else {
+      return false
+    }
+    let size = panel.contentView?.bounds.size ?? panel.contentLayoutRect.size
+    return statusItem != nil
+      && panel.isVisible
+      && panel.isKeyWindow
+      && NSApplication.shared.isActive
+      && size.width >= WindowDimensions.minimum.width
+      && size.height >= WindowDimensions.minimum.height
+  }
+
+  var smokeClosedSucceeded: Bool {
+    panel?.isVisible == false
+      && panel?.isKeyWindow == false
+      && NSApplication.shared.isActive == false
+  }
+
+  var smokeDescription: String {
+    let size = panel?.contentView?.bounds.size ?? .zero
+    return
+      "statusItem=\(statusItem != nil) visible=\(panel?.isVisible == true) key=\(panel?.isKeyWindow == true) active=\(NSApplication.shared.isActive) width=\(Int(size.width)) height=\(Int(size.height))"
+  }
+
+  @objc private func workspaceDidActivateApplication(_ notification: Notification) {
+    guard
+      panel?.isVisible == true,
+      let application = notification.userInfo?[NSWorkspace.applicationUserInfoKey]
+        as? NSRunningApplication,
+      application.processIdentifier != NSRunningApplication.current.processIdentifier,
+      application.isActive
+    else {
+      return
+    }
+    dismiss()
+  }
+
+  private func startOutsideClickMonitor() {
+    guard outsideClickMonitor == nil else {
+      return
+    }
+    outsideClickMonitor = NSEvent.addGlobalMonitorForEvents(matching: [
+      .leftMouseDown,
+      .rightMouseDown,
+      .otherMouseDown,
+    ]) { [weak self] _ in
+      Task { @MainActor in
+        guard self?.panel?.isVisible == true else {
+          return
+        }
+        self?.dismiss(
+          deactivateApplication: true,
+          restorePreviousApplication: true
+        )
+      }
+    }
+  }
+
+  private func stopOutsideClickMonitor() {
+    guard let outsideClickMonitor else {
+      return
+    }
+    NSEvent.removeMonitor(outsideClickMonitor)
+    self.outsideClickMonitor = nil
+  }
+
+  func dismiss(
+    deactivateApplication: Bool = false,
+    restorePreviousApplication: Bool = false
+  ) {
+    store.cancelRelease()
+    panel?.orderOut(nil)
+    let applicationToRestore = previouslyActiveApplication
+    previouslyActiveApplication = nil
+    guard deactivateApplication else {
+      return
+    }
+
+    DispatchQueue.main.asyncAfter(deadline: .now() + 0.05) {
+      guard NSApplication.shared.isActive else {
+        return
+      }
+      if restorePreviousApplication,
+        let applicationToRestore,
+        applicationToRestore.activate(options: [])
+      {
+        return
+      }
+      NSApplication.shared.deactivate()
+    }
   }
 
   func windowDidResize(_ notification: Notification) {
@@ -89,14 +229,6 @@ final class StatusPanelController: NSObject, NSWindowDelegate {
       return
     }
     saveDimensions(panel.contentView?.bounds.size ?? panel.contentLayoutRect.size)
-  }
-
-  func windowDidResignKey(_ notification: Notification) {
-    guard let panel = notification.object as? NSPanel else {
-      return
-    }
-    store.cancelRelease()
-    panel.orderOut(nil)
   }
 
   private func restoredDimensions() -> WindowDimensions {
@@ -180,7 +312,7 @@ private final class StatusPanel: NSPanel {
   init(contentRect: NSRect) {
     super.init(
       contentRect: contentRect,
-      styleMask: [.titled, .fullSizeContentView, .resizable, .nonactivatingPanel],
+      styleMask: [.titled, .fullSizeContentView, .resizable],
       backing: .buffered,
       defer: false
     )
@@ -194,7 +326,9 @@ private final class StatusPanel: NSPanel {
     isMovableByWindowBackground = false
     isReleasedWhenClosed = false
     isFloatingPanel = true
-    hidesOnDeactivate = true
+    becomesKeyOnlyIfNeeded = false
+    worksWhenModal = true
+    hidesOnDeactivate = false
     level = .popUpMenu
     collectionBehavior = [.transient, .moveToActiveSpace]
     animationBehavior = .utilityWindow
