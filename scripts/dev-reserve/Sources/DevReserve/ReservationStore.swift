@@ -143,23 +143,26 @@ final class ReservationStore: ObservableObject {
 
   func openTerminal(hostname: String) {
     let application = terminalApplication
-    do {
-      try terminalLauncher.open(
-        application: application,
-        hostname: hostname
-      )
-      operationError = nil
-      let message = "Opened \(application.label) to \(hostname)"
-      statusMessage = message
-      Task { [weak self] in
-        try? await Task.sleep(for: .seconds(2))
-        if self?.statusMessage == message {
-          self?.statusMessage = nil
-        }
+    Task { [weak self] in
+      guard let self else {
+        return
       }
-    } catch {
-      statusMessage = nil
-      operationError = error.localizedDescription
+      do {
+        try await terminalLauncher.open(
+          application: application,
+          hostname: hostname
+        )
+        operationError = nil
+        let message = "Opened \(application.label) to \(hostname)"
+        statusMessage = message
+        try? await Task.sleep(for: .seconds(2))
+        if statusMessage == message {
+          statusMessage = nil
+        }
+      } catch {
+        statusMessage = nil
+        operationError = error.localizedDescription
+      }
     }
   }
 

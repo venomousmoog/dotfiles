@@ -591,47 +591,29 @@ private func runFormattingTests(_ tests: inout TestContext) throws {
     "expected whitespace in a release hostname to be rejected"
   )
   try tests.expect(
-    sshCommand(hostname: "devvm123.example.com") == "ssh devvm123.example.com",
-    "expected a validated SSH command for iTerm"
-  )
-  try tests.expect(
-    sshCommand(hostname: "host; open -a Calculator") == nil,
-    "expected shell punctuation to be rejected before terminal automation"
-  )
-  try tests.expect(
     TerminalApplication(rawValue: "iterm") == .iTerm
       && TerminalApplication(rawValue: "terminal") == .terminal,
     "expected persisted terminal choices to decode"
   )
-  let iTermScript = try DevCLIError.invalidResponse("missing iTerm launch script").unwrap(
-    TerminalLaunchScript.source(
-      application: .iTerm,
-      hostname: "devvm123.example.com"
-    )
+  let terminalURL = try DevCLIError.invalidResponse("missing SSH launch URL").unwrap(
+    TerminalLaunchURL.url(hostname: "devvm123.example.com")
   )
   try tests.expect(
-    iTermScript.contains("set targetSession")
-      && iTermScript.contains("is processing of targetSession")
-      && iTermScript.contains("tell targetSession to write text \"ssh devvm123.example.com\""),
-    "expected iTerm to target and wait for the newly created session"
-  )
-  let terminalScript = try DevCLIError.invalidResponse("missing Terminal launch script").unwrap(
-    TerminalLaunchScript.source(
-      application: .terminal,
-      hostname: "devvm123.example.com"
-    )
+    terminalURL.absoluteString == "ssh://devvm123.example.com"
+      && terminalURL.scheme == "ssh"
+      && terminalURL.host == "devvm123.example.com",
+    "expected a validated shell-independent SSH URL"
   )
   try tests.expect(
-    terminalScript.contains("tell application id \"com.apple.Terminal\"")
-      && terminalScript.contains("do script \"ssh devvm123.example.com\""),
-    "expected Apple Terminal to create a fresh scripted connection"
+    TerminalLaunchURL.url(hostname: "foo_bar.example.com")?.absoluteString
+      == "ssh://foo_bar.example.com",
+    "expected DevEnv hostnames containing underscores to remain supported"
   )
   try tests.expect(
-    TerminalLaunchScript.source(
-      application: .iTerm,
-      hostname: "host; open -a Calculator"
-    ) == nil,
-    "expected an unsafe hostname to produce no terminal script"
+    TerminalLaunchURL.url(hostname: "host; open -a Calculator") == nil
+      && TerminalLaunchURL.url(hostname: "--all") == nil
+      && TerminalLaunchURL.url(hostname: "host name") == nil,
+    "expected unsafe hostnames to produce no terminal URL"
   )
 
   try tests.expect(
@@ -738,17 +720,10 @@ extension Array {
   }
 }
 
-if let scriptFlag = CommandLine.arguments.firstIndex(of: "--print-terminal-script"),
-  CommandLine.arguments.indices.contains(scriptFlag + 1),
-  let application = TerminalApplication(
-    rawValue: CommandLine.arguments[scriptFlag + 1]
-  ),
-  let source = TerminalLaunchScript.source(
-    application: application,
-    hostname: "devvm123.example.com"
-  )
+if CommandLine.arguments.contains("--print-terminal-url"),
+  let url = TerminalLaunchURL.url(hostname: "devvm123.example.com")
 {
-  print(source)
+  print(url.absoluteString)
   exit(0)
 }
 

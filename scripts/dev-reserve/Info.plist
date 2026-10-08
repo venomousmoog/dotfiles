@@ -24,8 +24,6 @@
     <string>14.0</string>
     <key>LSUIElement</key>
     <true/>
-    <key>NSAppleEventsUsageDescription</key>
-    <string>DevReserve opens a terminal session connected to the selected DevEnv host.</string>
     <key>NSHighResolutionCapable</key>
     <true/>
 </dict>

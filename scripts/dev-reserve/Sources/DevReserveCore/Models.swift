@@ -292,10 +292,3 @@ public func isValidReleaseHostname(_ hostname: String) -> Bool {
         || character == "_")
   }
 }
-
-public func sshCommand(hostname: String) -> String? {
-  guard isValidReleaseHostname(hostname) else {
-    return nil
-  }
-  return "ssh \(hostname)"
-}

@@ -2,35 +2,41 @@ import AppKit
 import DevReserveCore
 import Foundation
 
+@MainActor
 struct TerminalLauncher {
   func open(
     application: TerminalApplication,
     hostname: String
-  ) throws {
-    guard
-      let source = TerminalLaunchScript.source(
-        application: application,
-        hostname: hostname
-      )
-    else {
+  ) async throws {
+    guard let sshURL = TerminalLaunchURL.url(hostname: hostname) else {
       throw TerminalLauncherError.invalidHostname
     }
     guard
-      NSWorkspace.shared.urlForApplication(
+      let applicationURL = NSWorkspace.shared.urlForApplication(
         withBundleIdentifier: application.bundleIdentifier
-      ) != nil
+      )
     else {
       throw TerminalLauncherError.notInstalled(application)
     }
-    guard let script = NSAppleScript(source: source) else {
-      throw TerminalLauncherError.scriptCreationFailed(application)
-    }
 
-    var error: NSDictionary?
-    script.executeAndReturnError(&error)
-    if let error {
-      let message = error[NSAppleScript.errorMessage] as? String
-      throw TerminalLauncherError.automationFailed(application, message)
+    let configuration = NSWorkspace.OpenConfiguration()
+    configuration.activates = true
+
+    try await withCheckedThrowingContinuation {
+      (continuation: CheckedContinuation<Void, any Error>) in
+      NSWorkspace.shared.open(
+        [sshURL],
+        withApplicationAt: applicationURL,
+        configuration: configuration
+      ) { _, error in
+        if let error {
+          continuation.resume(
+            throwing: TerminalLauncherError.openFailed(application, error.localizedDescription)
+          )
+        } else {
+          continuation.resume(returning: ())
+        }
+      }
     }
   }
 }
@@ -38,8 +44,7 @@ struct TerminalLauncher {
 enum TerminalLauncherError: Error, LocalizedError {
   case invalidHostname
   case notInstalled(TerminalApplication)
-  case scriptCreationFailed(TerminalApplication)
-  case automationFailed(TerminalApplication, String?)
+  case openFailed(TerminalApplication, String)
 
   var errorDescription: String? {
     switch self {
@@ -47,15 +52,12 @@ enum TerminalLauncherError: Error, LocalizedError {
       return "This host does not have a valid SSH hostname."
     case .notInstalled(let application):
       return "\(application.label) is not installed. Choose another terminal and try again."
-    case .scriptCreationFailed(let application):
-      return "DevReserve could not prepare the \(application.label) command."
-    case .automationFailed(let application, let message):
-      let detail = message?.trimmingCharacters(in: .whitespacesAndNewlines)
-      if let detail, !detail.isEmpty {
+    case .openFailed(let application, let message):
+      let detail = message.trimmingCharacters(in: .whitespacesAndNewlines)
+      if !detail.isEmpty {
         return "DevReserve could not open \(application.label): \(detail)"
       }
-      return
-        "DevReserve could not open \(application.label). Allow DevReserve to control it in System Settings, then try again."
+      return "DevReserve could not open \(application.label)."
     }
   }
 }

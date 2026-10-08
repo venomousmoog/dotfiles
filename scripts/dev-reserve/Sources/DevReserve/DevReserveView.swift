@@ -588,9 +588,9 @@ private struct ReservationRow: View {
       }
       .buttonStyle(.plain)
       .padding(6)
-      .disabled(sshCommand(hostname: reservation.hostname) == nil)
+      .disabled(TerminalLaunchURL.url(hostname: reservation.hostname) == nil)
       .help(
-        sshCommand(hostname: reservation.hostname) == nil
+        TerminalLaunchURL.url(hostname: reservation.hostname) == nil
           ? "No valid SSH hostname is available"
           : "Open in \(terminalApplication.label): \(reservation.hostname)"
       )
