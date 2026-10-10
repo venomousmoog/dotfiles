@@ -25,15 +25,40 @@ public enum TerminalApplication: String, CaseIterable, Identifiable, Sendable {
   }
 }
 
-public enum TerminalLaunchURL {
-  public static func url(hostname: String) -> URL? {
+public enum TerminalLaunchCommand {
+  public static func arguments(hostname: String) -> [String]? {
     guard isValidReleaseHostname(hostname) else {
       return nil
     }
+    return [
+      "connect",
+      "--hostname",
+      hostname,
+      "--no-release-prompt",
+      "--entry-point",
+      "dev_cli:dev_reserve_bar",
+    ]
+  }
 
-    var components = URLComponents()
-    components.scheme = "ssh"
-    components.host = hostname
-    return components.url
+  public static func script(
+    devExecutablePath: String,
+    hostname: String
+  ) -> String? {
+    guard !devExecutablePath.isEmpty, let arguments = arguments(hostname: hostname) else {
+      return nil
+    }
+    let command = ([devExecutablePath] + arguments)
+      .map(posixQuoted)
+      .joined(separator: " ")
+    return """
+      #!/bin/sh
+      /bin/rm -f -- "$0"
+      exec \(command)
+
+      """
+  }
+
+  private static func posixQuoted(_ value: String) -> String {
+    "'" + value.replacingOccurrences(of: "'", with: "'\"'\"'") + "'"
   }
 }

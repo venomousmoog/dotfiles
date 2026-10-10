@@ -588,10 +588,10 @@ private struct ReservationRow: View {
       }
       .buttonStyle(.plain)
       .padding(6)
-      .disabled(TerminalLaunchURL.url(hostname: reservation.hostname) == nil)
+      .disabled(TerminalLaunchCommand.arguments(hostname: reservation.hostname) == nil)
       .help(
-        TerminalLaunchURL.url(hostname: reservation.hostname) == nil
-          ? "No valid SSH hostname is available"
+        TerminalLaunchCommand.arguments(hostname: reservation.hostname) == nil
+          ? "No valid DevEnv hostname is available"
           : "Open in \(terminalApplication.label): \(reservation.hostname)"
       )
       .accessibilityLabel("Open \(reservation.hostname) in \(terminalApplication.label)")

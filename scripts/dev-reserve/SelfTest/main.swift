@@ -568,6 +568,52 @@ private func runProcessTests(_ tests: inout TestContext) throws {
     enforcedTimeout = true
   }
   try tests.expect(enforcedTimeout, "expected a hung command to time out")
+
+  let fileManager = FileManager.default
+  let testDirectory = fileManager.temporaryDirectory.appendingPathComponent(
+    "dev-reserve-terminal-test-\(UUID().uuidString)",
+    isDirectory: true
+  )
+  try fileManager.createDirectory(at: testDirectory, withIntermediateDirectories: false)
+  defer { try? fileManager.removeItem(at: testDirectory) }
+
+  let fakeDevURL = testDirectory.appendingPathComponent("dev")
+  try """
+  #!/bin/sh
+  printf '%s\\n' "$@" > "$0.args"
+
+  """.write(to: fakeDevURL, atomically: true, encoding: .utf8)
+  try fileManager.setAttributes([.posixPermissions: 0o700], ofItemAtPath: fakeDevURL.path)
+  let commandURL = testDirectory.appendingPathComponent("connect.command")
+  let commandSource = try DevCLIError.invalidResponse("missing terminal test script").unwrap(
+    TerminalLaunchCommand.script(
+      devExecutablePath: fakeDevURL.path,
+      hostname: "devvm123.example.com"
+    )
+  )
+  try commandSource.write(to: commandURL, atomically: true, encoding: .utf8)
+  try fileManager.setAttributes([.posixPermissions: 0o700], ofItemAtPath: commandURL.path)
+  _ = try ProcessRunner(executableURL: commandURL).run(arguments: [], timeoutSeconds: 2)
+  let capturedArguments = try String(
+    contentsOf: URL(fileURLWithPath: fakeDevURL.path + ".args"),
+    encoding: .utf8
+  ).split(separator: "\n").map(String.init)
+  try tests.expect(
+    capturedArguments
+      == [
+        "connect",
+        "--hostname",
+        "devvm123.example.com",
+        "--no-release-prompt",
+        "--entry-point",
+        "dev_cli:dev_reserve_bar",
+      ],
+    "expected the terminal wrapper to exec dev with exact arguments"
+  )
+  try tests.expect(
+    !fileManager.fileExists(atPath: commandURL.path),
+    "expected the terminal wrapper to delete itself before connecting"
+  )
 }
 
 private func runFormattingTests(_ tests: inout TestContext) throws {
@@ -595,25 +641,53 @@ private func runFormattingTests(_ tests: inout TestContext) throws {
       && TerminalApplication(rawValue: "terminal") == .terminal,
     "expected persisted terminal choices to decode"
   )
-  let terminalURL = try DevCLIError.invalidResponse("missing SSH launch URL").unwrap(
-    TerminalLaunchURL.url(hostname: "devvm123.example.com")
+  let terminalArguments = try DevCLIError.invalidResponse(
+    "missing DevEnv terminal arguments"
+  ).unwrap(
+    TerminalLaunchCommand.arguments(hostname: "devvm123.example.com")
   )
   try tests.expect(
-    terminalURL.absoluteString == "ssh://devvm123.example.com"
-      && terminalURL.scheme == "ssh"
-      && terminalURL.host == "devvm123.example.com",
-    "expected a validated shell-independent SSH URL"
+    terminalArguments
+      == [
+        "connect",
+        "--hostname",
+        "devvm123.example.com",
+        "--no-release-prompt",
+        "--entry-point",
+        "dev_cli:dev_reserve_bar",
+      ],
+    "expected a DevEnv-aware terminal connection command"
+  )
+  let terminalScript = try DevCLIError.invalidResponse(
+    "missing DevEnv terminal script"
+  ).unwrap(
+    TerminalLaunchCommand.script(
+      devExecutablePath: "/usr/local/bin/dev",
+      hostname: "devvm123.example.com"
+    )
   )
   try tests.expect(
-    TerminalLaunchURL.url(hostname: "foo_bar.example.com")?.absoluteString
-      == "ssh://foo_bar.example.com",
-    "expected DevEnv hostnames containing underscores to remain supported"
+    terminalScript
+      == """
+      #!/bin/sh
+      /bin/rm -f -- "$0"
+      exec '/usr/local/bin/dev' 'connect' '--hostname' 'devvm123.example.com' '--no-release-prompt' '--entry-point' 'dev_cli:dev_reserve_bar'
+
+      """,
+    "expected a self-deleting direct dev connect script"
   )
   try tests.expect(
-    TerminalLaunchURL.url(hostname: "host; open -a Calculator") == nil
-      && TerminalLaunchURL.url(hostname: "--all") == nil
-      && TerminalLaunchURL.url(hostname: "host name") == nil,
-    "expected unsafe hostnames to produce no terminal URL"
+    TerminalLaunchCommand.script(
+      devExecutablePath: "/Applications/Dev Tool's/dev",
+      hostname: "foo_bar.example.com"
+    )?.contains("'/Applications/Dev Tool'\"'\"'s/dev'") == true,
+    "expected executable paths to be safely POSIX-quoted"
+  )
+  try tests.expect(
+    TerminalLaunchCommand.arguments(hostname: "host; open -a Calculator") == nil
+      && TerminalLaunchCommand.arguments(hostname: "--all") == nil
+      && TerminalLaunchCommand.arguments(hostname: "host name") == nil,
+    "expected unsafe hostnames to produce no terminal command"
   )
 
   try tests.expect(
@@ -720,10 +794,13 @@ extension Array {
   }
 }
 
-if CommandLine.arguments.contains("--print-terminal-url"),
-  let url = TerminalLaunchURL.url(hostname: "devvm123.example.com")
+if CommandLine.arguments.contains("--print-terminal-script"),
+  let script = TerminalLaunchCommand.script(
+    devExecutablePath: "/usr/local/bin/dev",
+    hostname: "devvm123.example.com"
+  )
 {
-  print(url.absoluteString)
+  print(script, terminator: "")
   exit(0)
 }
 
