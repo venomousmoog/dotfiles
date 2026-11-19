@@ -33,54 +33,12 @@ if command -v systemctl &>/dev/null; then
     fi
 fi
 
-# Wait for Eden/feature initial sync (source code checkout).
-# The "Initial sync:" line in `feature status` reports the state of the first
-# sync. We distinguish three cases:
-#   successful -> nothing to wait for, proceed
-#   failed     -> a terminal state that will NOT become successful on its own,
-#                 so warn and proceed immediately (blocking here would just hang
-#                 for the whole timeout window before giving up)
-#   anything else (in progress / pending / not started) -> poll until it
-#                 resolves to successful or failed, or we time out
-if command -v feature &>/dev/null; then
-    _fs_state() {
-        feature status 2>/dev/null \
-            | sed -n 's/^Initial sync:[[:space:]]*//p' \
-            | head -n1
-    }
-    case "$(_fs_state)" in
-        successful*)
-            ;;  # already done
-        failed*)
-            printf "Warning: feature initial sync state is 'failed' -- continuing without waiting (run 'feature sync' to retry)\n" >&2
-            ;;
-        *)
-            printf "Waiting for feature sync"
-            _fs_elapsed=0
-            while :; do
-                case "$(_fs_state)" in
-                    successful*)
-                        printf " done (%ds)\n" "$_fs_elapsed"
-                        break
-                        ;;
-                    failed*)
-                        printf "\nWarning: feature initial sync state became 'failed' after %ds -- continuing (run 'feature sync' to retry)\n" "$_fs_elapsed" >&2
-                        break
-                        ;;
-                esac
-                if [ $_fs_elapsed -ge 300 ]; then
-                    printf " timed out after 300s\n"
-                    break
-                fi
-                sleep 5
-                _fs_elapsed=$((_fs_elapsed + 5))
-                printf "."
-            done
-            unset _fs_elapsed
-            ;;
-    esac
-    unset -f _fs_state
-fi
+# Note: we intentionally do NOT wait for `feature` initial sync here. Nothing
+# in this bootstrap (or in the tmux/powershell startup paths that call us)
+# depends on a feature-installed binary -- dotsync, git, and fwdproxy-config
+# are all base-OS. Features (powershell, aria_ai_devtools, etc.) that aren't
+# installed yet just won't launch; the user re-runs after `feature sync`
+# finishes. Adding a 5-minute block here punished every new terminal.
 
 # Clone dotfiles repo if missing
 if [ ! -d "$DOTFILES_DIR" ]; then
